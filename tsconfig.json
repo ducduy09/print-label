@@ -18,7 +18,21 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@component/*": ["src/component/*"],
+      "@axios/*": ["src/setup/axios/*"],
+      "@container/*": ["src/container/*"],
+      "@navigator/*": ["src/setup/navigator/*"],
+      "@redux/*": ["src/setup/redux/*"],
+      "@type": ["src/setup/type"],
+      "@constants/*": ["src/setup/constants/*"],
+      "@functions": ["src/setup/func"],
+      "@assets/*": ["src/assets/*"],
+      "@setup_assets/*": ["src/setup/assets/*"],
+      "@src/*": ["src/*"]
+    }
   },
   "include": [
     "src"
