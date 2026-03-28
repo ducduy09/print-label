@@ -20,10 +20,10 @@ export const ELEMENT_TYPES = [
 ] as const;
 
 export const DEFAULT_ELEMENT_HEIGHTS = {
-  text: 15,
-  datetime: 15,
-  barcode: 38,
-  image: 38,
+  text: 5,
+  datetime: 5,
+  barcode: 12,
+  image: 12,
 } as const;
 
 export const WIDTH_PRESETS = [25, 33, 50, 100] as const;

@@ -1,10 +1,10 @@
 import { TemplateProps, TypePrint } from "@type";
-import { Element } from "../config/Type";
+import { Templates } from "../config/Type";
 import { showSnackBar } from "@component/alert/SnackBarModal";
 import { TEMPLATE_PRINT } from "@axios/urls";
 import Api from "@axios/helpers";
 
-export const handleSaveTemplate = async (elements: Element[], data: any ) => {
+export const handleSaveTemplate = async (elements: Templates[], data: any ) => {
     try {
       if (!data.templateName.trim()) {
         showSnackBar('WARNING', 'Please enter a template name before saving.');
@@ -21,50 +21,53 @@ export const handleSaveTemplate = async (elements: Element[], data: any ) => {
         columns: data.column,
         gap: 3,
         description: data.description, // Lưu description
-        items: elements.map((el)=>{
-          let id = 1
-          let imgSrc: string | File | null = el.content;
-          switch(el.type) {
-            case TypePrint.TEXT: id = 1; break;
-            case TypePrint.BARCODE: id = 2; break;
-            case TypePrint.DATETIME: id = 3; break;
-            case TypePrint.IMAGE: 
-              if (el.content) {
-                if (typeof el.content === 'string') {
-                  if (el.content.startsWith('https://')) {
-                    imgSrc = el.content;
-                  }
-                } else if (typeof el.content === 'object' && el.content !== null) {
-                  try {
-                    files.push(el.content as File);
-                    imgSrc = URL.createObjectURL(el.content as File);
-                  } catch (e) {
-                    console.error('Error creating object URL:', e);
+        items: elements.map((temp) => {
+          return temp.elements.map((el) => {
+            let id = 1
+            let imgSrc: string | File | null = el.content;
+            switch(el.type) {
+              case TypePrint.TEXT: id = 1; break;
+              case TypePrint.BARCODE: id = 2; break;
+              case TypePrint.DATETIME: id = 3; break;
+              case TypePrint.IMAGE: 
+                if (el.content) {
+                  if (typeof el.content === 'string') {
+                    if (el.content.startsWith('https://')) {
+                      imgSrc = el.content;
+                    }
+                  } else if (typeof el.content === 'object' && el.content !== null) {
+                    try {
+                      files.push(el.content as File);
+                      imgSrc = URL.createObjectURL(el.content as File);
+                    } catch (e) {
+                      console.error('Error creating object URL:', e);
+                    }
                   }
                 }
-              }
-              id = 4; 
-              break;
-          }
-          return {
-            itemId: id,
-            x: el.x, // Gửi tọa độ pixel
-            y: el.y, // Gửi tọa độ pixel
-            width: el.widthPercent,
-            height: el.height,
-            content: imgSrc?.toString().includes("blob:http") ? '' : imgSrc, // Nếu là Blob URL thì gửi chuỗi rỗng
-            // Cần lưu thêm các thuộc tính style khác nếu API hỗ trợ
-            properties: {
-                elementId: el.elementId,
-                fontSize: el.fontSize,
-                fontWeight: el.fontWeight,
-                textAlign: el.textAlign,
-                fontFamily: el.fontFamily,
-                padding: el.padding,
-                margin: el.margin,
-                displayTime: el.displayTime ? true : false
-            } 
-          }
+                id = 4; 
+                break;
+            }
+            return {
+              itemId: id,
+              x: el.x, // Gửi tọa độ pixel
+              y: el.y, // Gửi tọa độ pixel
+              width: el.widthPercent,
+              height: el.height,
+              column: el.column,
+              content: imgSrc?.toString().includes("blob:http") ? '' : imgSrc, // Nếu là Blob URL thì gửi chuỗi rỗng
+              // Cần lưu thêm các thuộc tính style khác nếu API hỗ trợ
+              properties: {
+                  elementId: el.elementId,
+                  fontSize: el.fontSize,
+                  fontWeight: el.fontWeight,
+                  textAlign: el.textAlign,
+                  fontFamily: el.fontFamily,
+                  padding: el.padding,
+                  margin: el.margin,
+                  displayTime: el.displayTime ? true : false
+              } 
+            }
+          })
         })
       }
       if(!!data.templateID || data.templateID !== ''){

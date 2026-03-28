@@ -1,4 +1,4 @@
-import { TypePrint } from "@type";
+import { TemplateProps, TypePrint } from "@type";
 
 // 1->100
 export type WidthValue = number; 
@@ -12,6 +12,7 @@ export interface Element {
   widthPercent: WidthValue;
   height: number;
   fontSize?: number;
+  column: number;
   fontWeight?: 'normal' | 'bold';
   textAlign?: 'left' | 'center' | 'right';
   padding?: number;
@@ -21,4 +22,8 @@ export interface Element {
   displayTime?: boolean; // Tùy chọn hiển thị giờ cho datetime
   fontFamily?: string;
   // textPosition?: boolean; // Tùy chọn hiển thị position text barcode
+}
+
+export interface Templates extends TemplateProps {
+  elements: Element[];
 }

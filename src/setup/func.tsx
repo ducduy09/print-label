@@ -598,3 +598,13 @@ export const useUnsavedChanges = ({
     };
   }, [hasUnsavedChanges, message]);
 };
+
+// Copy đoạn này, chỉ thay KEY và VALUE tùy bài toán
+// export const grouped = Object.values(
+//   array.reduce((acc, item) => {
+//     const key = item.KEY; // 👈 thay KEY (vd: column, type, status...)
+//     if (!acc[key]) acc[key] = { key, items: [] };
+//     acc[key].items.push(item); // 👈 thay items tùy interface
+//     return acc;
+//   }, {} as Record<string | number, YourType>)
+// );

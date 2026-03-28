@@ -2,20 +2,15 @@ import React, { useState } from "react";
 import images from "@setup_assets/image/images";
 import NavigationService from "@navigator/NavigationService";
 import * as screenNames from "@navigator/screenNames";
-import { DataUser } from "@type";
-import TextBaseTranslate from "@component/text/TextbaseTranslate";
-import SVGS from "@setup_assets/image/svgs";
 import InstallAppButton from "@component/button/InstallAppButton";
-import Api from "@axios/helpers";
+import { t } from "i18next";
 
 const BackgroundTemplate = ({
   children,
-  sidebar,
   bottomSideBar,
   tabNavigation,
 }: {
   children: React.ReactNode;
-  sidebar: React.ReactNode;
   bottomSideBar?: React.ReactNode;
   tabNavigation?: React.ReactNode;
 }) => {
@@ -34,7 +29,15 @@ const BackgroundTemplate = ({
           >
             <img className="w-32 object-center" src={images.logo} />
           </button>
-          {sidebar}
+          <nav className="flex-1 pt-4">
+            <div className="px-4 py-2.5 text-sm cursor-pointer bg-blue-50 text-blue-600 border-l-4 border-blue-600">
+              {t('template')}
+            </div>
+            <button onClick={() => setShowSidebar(false)}
+                title="Ẩn sidebar" className="w px-4 py-2.5 text-sm">
+              <span>&#10006;</span>
+            </button>
+          </nav>
           {!!bottomSideBar ? 
             <div className="absolute flex justify-between bottom-4 w-full">{bottomSideBar}</div> 
             : 

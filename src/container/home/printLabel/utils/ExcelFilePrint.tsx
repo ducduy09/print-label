@@ -1,9 +1,9 @@
 import { formatIfDate, isNumeric } from "@functions";
 import { DataPrintField, PrinterBuilderRequest, TypePrint } from "@type";
 import * as XLSX from 'xlsx';
-import { Element } from "../config/Type";
+import { Templates } from "../config/Type";
 
-export function importFilePrint(file: File, allElements: Element[]): Promise<PrinterBuilderRequest[]> {
+export function importFilePrint(file: File, listTemp: Templates[], ppCount: number): Promise<PrinterBuilderRequest[]> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
@@ -31,50 +31,55 @@ export function importFilePrint(file: File, allElements: Element[]): Promise<Pri
             const rowData = jsonData[i];
             if (!rowData || rowData.length === 0 || rowData.every(cell => !cell)) continue;
 
+            let listDataField: DataPrintField[] = [];
+
             const dto: PrinterBuilderRequest = {
               id: String(rowData[0] || '').trim(),
-              count: Math.floor(Number(rowData[slColumnIndex]) || 0),
-              data: [],
+              count:  Math.floor(Number(rowData[slColumnIndex]) || 0),
+              columns: ppCount,
+              data: listDataField,
             };
 
-            const dataFields: DataPrintField[] = allElements.map(element => {
-              let cellValue = '';
-              let fieldType = element.type || TypePrint.TEXT;
+            listTemp.map(temp => {
+              const dataFields: DataPrintField[] = temp.elements.map(element => {
+                let cellValue = '';
+                let fieldType = element.type || TypePrint.TEXT;
 
-              if (String(element.elementId).includes("ABS")) {
-                cellValue = element.content as string || '';
-              } else {
-                const colIndex = headerRow.indexOf(String(element.elementId).toLocaleUpperCase());
-                const cellValueRaw = colIndex !== -1 ? rowData[colIndex] : '';
-
-                if (typeof cellValueRaw === 'string' && cellValueRaw.startsWith("https://")) {
-                  fieldType = TypePrint.IMAGE;
-                  cellValue = cellValueRaw.trim();
-                } else if (isNumeric(cellValueRaw)) {
-                  cellValue = cellValueRaw || 0;
+                if (String(element.elementId).includes("ABS")) {
+                  cellValue = element.content as string || '';
                 } else {
-                  cellValue = formatIfDate(cellValueRaw);
-                }
-              }
+                  const colIndex = headerRow.indexOf(String(element.elementId).toLocaleUpperCase());
+                  const cellValueRaw = colIndex !== -1 ? rowData[colIndex] : '';
 
-              return {
-                name: element.elementId,
-                type: String(fieldType).toLocaleUpperCase() as TypePrint,
-                value: cellValue,
-                width: element.widthPercent,
-                height: element.height,
-                x: element.x,
-                y: element.y,
-                properties: {
-                  fontSize: element.fontSize,
-                  displayTime: element.displayTime,
-                  elementId: element.elementId,
-                  fontFamily: element.fontFamily,
+                  if (typeof cellValueRaw === 'string' && cellValueRaw.startsWith("https://")) {
+                    fieldType = TypePrint.IMAGE;
+                    cellValue = cellValueRaw.trim();
+                  } else if (isNumeric(cellValueRaw)) {
+                    cellValue = cellValueRaw || 0;
+                  } else {
+                    cellValue = formatIfDate(cellValueRaw);
+                  }
                 }
-              };
+                return {
+                  name: element.elementId,
+                  type: element.type.toLocaleUpperCase() as TypePrint,
+                  value: cellValue,
+                  width: element.widthPercent,
+                  height: element.height,
+                  column: element.column,
+                  x: element.x,
+                  y: element.y,
+                  properties: {
+                    fontSize: element.fontSize,
+                    displayTime: element.displayTime,
+                    elementId: element.elementId,
+                    fontFamily: element.fontFamily,
+                  }
+                };
+              })
+              listDataField.push(...dataFields);
             });
 
-            dto.data = dataFields;
             dataList.push(dto);
           }
 
