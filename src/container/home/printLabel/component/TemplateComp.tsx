@@ -1,5 +1,5 @@
 import { showSnackBar } from '@component/alert/SnackBarModal';
-import React, { Dispatch, SetStateAction, useCallback, useMemo, useRef, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Element, Templates } from '../config/Type';
 import { KeyValue, TypePrint } from '@type';
 import { ImageIcon } from 'lucide-react';
@@ -21,7 +21,6 @@ interface TemplateProps {
 // DragSession — toàn bộ lưu ref, không có state
 interface DragSession {
   elementId:  number;
-  pxPerMm:    number;
   // Gốc tọa độ = cạnh trái của cột 0 (px)
   // Mọi tính toán đều dùng hệ này — nhất quán xuyên suốt drag
   col0Left:   number;
@@ -42,6 +41,16 @@ function TemplateComp(props: TemplateProps) {
 
   const colWidthMm = paperWidth;
 
+
+  const objectUrlCache = useRef<Map<File, string>>(new Map());
+
+  // Cleanup khi unmount
+  useEffect(() => {
+    return () => {
+      objectUrlCache.current.forEach(url => URL.revokeObjectURL(url));
+      objectUrlCache.current.clear();
+    };
+  }, []);
   // ─────────────────────────────────────────────────────────────────────────
   // ElementRenderer
   // ─────────────────────────────────────────────────────────────────────────
@@ -104,10 +113,21 @@ function TemplateComp(props: TemplateProps) {
       case TypePrint.IMAGE: {
         let imgSrc: string | null = null;
         if (element.content) {
-          if (typeof element.content === 'string') imgSrc = element.content;
-          else if (element.content instanceof File) {
-            try { imgSrc = URL.createObjectURL(element.content); }
-            catch (e) { console.error('createObjectURL error:', e); }
+          if (typeof element.content === 'string') {
+            imgSrc = element.content;
+          } else if (element.content instanceof File) {
+            // Kiểm tra cache trước — nếu đã có thì dùng lại, không tạo mới
+            if (objectUrlCache.current.has(element.content)) {
+              imgSrc = objectUrlCache.current.get(element.content)!;
+            } else {
+              try {
+                const url = URL.createObjectURL(element.content);
+                objectUrlCache.current.set(element.content, url); // lưu vào cache
+                imgSrc = url;
+              } catch (e) {
+                console.error('createObjectURL error:', e);
+              }
+            }
           }
         }
         return (
@@ -161,14 +181,14 @@ function TemplateComp(props: TemplateProps) {
       showSnackBar('WARNING', 'Cannot move ABS elements.');
       return;
     }
-    e.stopPropagation();
-    e.preventDefault();
+    e.stopPropagation();    // Ngăn sự kiện lan ra ngoài (bubble up) theo cây DOM,  → tránh trigger nhầm các handler ở component cha
+    e.preventDefault();    // ngăn text selection khi kéo
 
     const targetElement = props.elements.find(el => el.id === elementId);
     if (!targetElement || !printAreaRef.current) return;
 
-    const canvasRect = printAreaRef.current.getBoundingClientRect();
-    const pxPerMm    = canvasRect.width / colWidthMm;
+    const canvasRect = printAreaRef.current.getBoundingClientRect(); // lấy giới hạn, khoảng cách canvas -> view port (px)
+    const pxPerMm    = canvasRect.width / colWidthMm; // tính tỉ lệ
 
     // Gốc tọa độ: cạnh trái của cột 0 (px)
     const col0Left = canvasRect.left - index * (colWidthMm + columnGapMm) * pxPerMm;
@@ -182,11 +202,11 @@ function TemplateComp(props: TemplateProps) {
     const elementX_mm = index * (colWidthMm + columnGapMm) + targetElement.x;
     const elementY_mm = targetElement.y;
 
-    // offset = khoảng cách từ chuột đến góc element (mm) — không đổi trong suốt drag
+    // offset = khoảng cách từ chuột đến góc element (mm) — không đổi khi drag
     const offsetX = mouseX_mm - elementX_mm;
     const offsetY = mouseY_mm - elementY_mm;
 
-    dragRef.current = { elementId, pxPerMm, col0Left, col0Top, offsetX, offsetY };
+    dragRef.current = { elementId, col0Left, col0Top, offsetX, offsetY }; // lưu cache các giá trị này vào ref
     isMovingRef.current = false;
 
     const startClientX = e.clientX;
@@ -198,6 +218,7 @@ function TemplateComp(props: TemplateProps) {
 
       // Threshold
       if (!isMovingRef.current) {
+        // check xem nếu hành động kéo element di chuyển > 5px thì tính là di chuyển, tránh nhầm vs click
         const moved =
           Math.abs(moveEvent.clientX - startClientX) > 5 ||
           Math.abs(moveEvent.clientY - startClientY) > 5;
@@ -218,8 +239,8 @@ function TemplateComp(props: TemplateProps) {
       }
 
       // ── Vị trí chuột trong hệ wrapper-mm ─────────────────────────────
-      const mouseX_mm = (moveEvent.clientX - session.col0Left) / session.pxPerMm;
-      const mouseY_mm = (moveEvent.clientY - session.col0Top)  / session.pxPerMm;
+      const mouseX_mm = (moveEvent.clientX - session.col0Left) / pxPerMm;
+      const mouseY_mm = (moveEvent.clientY - session.col0Top)  / pxPerMm;
 
       // ── Vị trí góc top-left element trong hệ wrapper-mm ──────────────
       // element đi theo chuột: góc element = chuột - offset (không đổi)
@@ -289,11 +310,8 @@ function TemplateComp(props: TemplateProps) {
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup',   onMouseUp);
-  }, [props.elements, props.setListTemp, index, colWidthMm, columnGapMm, paperHeight, paperCount]);
+  }, [props, colWidthMm, index, columnGapMm, paperCount, paperHeight]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
       ref={printAreaRef}

@@ -31,14 +31,18 @@ export const handleSaveTemplate = async (elements: Templates[], data: any ) => {
               case TypePrint.DATETIME: id = 3; break;
               case TypePrint.IMAGE: 
                 if (el.content) {
-                  if (typeof el.content === 'string') {
-                    if (el.content.startsWith('https://')) {
+                  if (typeof el.content === 'string' && el.content.startsWith('https://')) {
                       imgSrc = el.content;
-                    }
                   } else if (typeof el.content === 'object' && el.content !== null) {
                     try {
-                      files.push(el.content as File);
-                      imgSrc = URL.createObjectURL(el.content as File);
+                      const ext        = el.content.name.split('.').pop() ?? 'png';
+                      const renamedFile = new File(
+                        [el.content],
+                        `${el.elementId}.${ext}`,  // ← tên mới = elementId.ext
+                        { type: el.content.type }
+                      );
+                      files.push(renamedFile);
+                      imgSrc = '';
                     } catch (e) {
                       console.error('Error creating object URL:', e);
                     }
@@ -54,7 +58,7 @@ export const handleSaveTemplate = async (elements: Templates[], data: any ) => {
               width: el.widthPercent,
               height: el.height,
               column: el.column,
-              content: imgSrc?.toString().includes("blob:http") ? '' : imgSrc, // Nếu là Blob URL thì gửi chuỗi rỗng
+              content: imgSrc ?? '', // Nếu là Blob URL thì gửi chuỗi rỗng
               // Cần lưu thêm các thuộc tính style khác nếu API hỗ trợ
               properties: {
                   elementId: el.elementId,

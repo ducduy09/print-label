@@ -123,7 +123,6 @@ const TemplateBuilder: React.FC = () => {
 
   // ── Tab switching ─────────────────────────────────────────────────────────
   const switchToListTab = useCallback(() => {
-    setChangeTab(true);
     setPaperWidth(75);
     setPaperHeight(55);
     setPaperCount(1);
@@ -140,8 +139,9 @@ const TemplateBuilder: React.FC = () => {
       modalConfirmRef.current?.openModal();
     } else {
       setChangeTab(!changeTab);
+      switchToListTab()
     }
-  }, [changeTab, isChangeData]);
+  }, [changeTab, isChangeData, switchToListTab]);
 
   useUnsavedChanges({
     hasUnsavedChanges: isChangeData,
@@ -642,7 +642,10 @@ const TemplateBuilder: React.FC = () => {
         message={t('confirmNotSaveDesc')}
         txtBtn2="OK"
         ref={modalConfirmRef}
-        onConfirm2={switchToListTab}
+        onConfirm2={()=> {
+          switchToListTab()
+          setChangeTab(true)
+        }}
       />
     </div>
   );
