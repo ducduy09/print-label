@@ -138,16 +138,19 @@ function TemplateComp(props: TemplateProps) {
 
   const [draggedId, setDraggedId] = useState<number | null>(null);
 
-  const colWidthMm = paperWidth;
+  const colWidthMm = paperCount > 1
+    ? Math.max(1, (paperWidth - columnGapMm * (paperCount - 1)) / paperCount)
+    : paperWidth;
 
 
   const objectUrlCache = useRef<Map<File, string>>(new Map());
 
   // Cleanup khi unmount
   useEffect(() => {
+    const cache = objectUrlCache.current;
     return () => {
-      objectUrlCache.current.forEach(url => URL.revokeObjectURL(url));
-      objectUrlCache.current.clear();
+      cache.forEach(url => URL.revokeObjectURL(url));
+      cache.clear();
     };
   }, []);
 

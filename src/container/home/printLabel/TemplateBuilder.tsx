@@ -27,15 +27,22 @@ import SnackBarManager from '@component/alert/SnackBarManager';
 // Gap giữa các cột — đơn vị mm, dùng trực tiếp trong CSS và tính toán drag
 const COLUMN_GAP_MM = 3;
 
-const emptyTemplate = (paperWidth: number, paperHeight: number): Templates => ({
+const getColumnWidth = (paperWidth: number, paperCount: number, gap: number) => {
+  if (paperCount <= 1) return paperWidth;
+  const totalGap = gap * (paperCount - 1);
+  const available = Math.max(1, paperWidth - totalGap);
+  return available / paperCount;
+};
+
+const emptyTemplate = (width: number, paperHeight: number, gap: number = COLUMN_GAP_MM): Templates => ({
   elements: [],
   templateId: String(Date.now()),
   name: '',
-  gap: COLUMN_GAP_MM,
+  gap,
   description: '',
   status: 'ACTIVE',
   height: paperHeight,
-  width: paperWidth,
+  width,
   createdAt: new Date().toISOString(),
 });
 
@@ -51,10 +58,15 @@ const TemplateBuilder: React.FC = () => {
   const [description,     setDescription]     = useState<string>('');
   const [templateID,      setTemplateID]      = useState<string>('');
   const [selectedElement, setSelectedElement] = useState<KeyValue>({ id: -1, value: 0 });
-  const [paperWidth,      setPaperWidth]      = useState<number>(75);   // mm
+  const [paperWidth,      setPaperWidth]      = useState<number>(75);   // mm (full page width)
   const [paperHeight,     setPaperHeight]     = useState<number>(55);   // mm
   const [paperCount,      setPaperCount]      = useState<number>(1);
-  const [listTemp,        setListTemp]        = useState<Templates[]>([emptyTemplate(75, 55)]);
+  const [columnGap,       setColumnGap]       = useState<number>(COLUMN_GAP_MM);
+  const columnWidth = useMemo(
+    () => getColumnWidth(paperWidth, paperCount, columnGap),
+    [paperWidth, paperCount, columnGap]
+  );
+  const [listTemp,        setListTemp]        = useState<Templates[]>([emptyTemplate(columnWidth, 55)]);
   const [tempImageUrl,    setTempImageUrl]    = useState<string>('');
   const [changeTab,       setChangeTab]       = useState<boolean>(true);
   const [isChangeData,    setIsChangeData]    = useState<boolean>(false);
@@ -74,10 +86,10 @@ const TemplateBuilder: React.FC = () => {
 
     setListTemp(prev => {
       const next = [...prev];
-      while (next.length < paperCount) next.push(emptyTemplate(paperWidth, paperHeight));
+      while (next.length < paperCount) next.push(emptyTemplate(columnWidth, paperHeight, columnGap));
       return next.slice(0, paperCount);
     });
-  }, [paperCount, paperHeight, paperWidth]);
+  }, [paperCount, paperHeight, paperWidth, columnGap, columnWidth]);
 
   // ── Thêm element vào cột ──────────────────────────────────────────────────
   const addElement = useCallback((index: number, type: TypePrint) => {
@@ -102,7 +114,7 @@ const TemplateBuilder: React.FC = () => {
         : type === TypePrint.BARCODE ? '9385241840319'
         : type === TypePrint.TEXT   ? 'Sample Text'
         : '',
-      width: 40,
+      width: columnWidth,
       height: newElementHeight,   // mm
       fontSize: type !== TypePrint.IMAGE ? 8 : undefined, // pt
       fontWeight: 'normal',
@@ -126,9 +138,10 @@ const TemplateBuilder: React.FC = () => {
     setPaperWidth(75);
     setPaperHeight(55);
     setPaperCount(1);
+    setColumnGap(COLUMN_GAP_MM);
     setTemplateName('');
     setDescription('');
-    setListTemp([emptyTemplate(75, 55)]);
+    setListTemp([emptyTemplate(75, 55, COLUMN_GAP_MM)]);
     setSelectedElement({ id: -1, value: 0 });
     setTemplateID('');
     setIsChangeData(false);
@@ -185,13 +198,13 @@ const TemplateBuilder: React.FC = () => {
       return;
     }
     setIsChangeData(true);
-    const safeWidth = Math.max(1, Math.min(paperWidth, width));
+    const safeWidth = Math.max(1, Math.min(columnWidth, width));
     setListTemp(prev => prev.map((temp, i) =>
       i === index
         ? { ...temp, elements: temp.elements.map(el => el.id === id ? { ...el, width: safeWidth, height } : el) }
         : temp
     ));
-  }, []);
+  }, [columnWidth]);
 
   const updateElementStyle = useCallback((index: number, id: number, updates: Partial<Element>) => {
     setIsChangeData(true);
@@ -210,17 +223,6 @@ const TemplateBuilder: React.FC = () => {
     if (file) updateElementContent(index, id, file);
   }, [updateElementContent]);
 
-  const getInvalidBarcode = useCallback(() => {
-    return listTemp
-      .flatMap(temp => temp.elements)
-      .find(el =>
-        el.type === TypePrint.BARCODE &&
-        typeof el.content === 'string' &&
-        el.content.trim() !== '' &&
-        getBarcodeWidthMm(el.content) > el.width
-      );
-  }, [listTemp]);
-
   // ── In từ Excel ───────────────────────────────────────────────────────────
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -233,7 +235,7 @@ const TemplateBuilder: React.FC = () => {
       if (listTemp.find(temp => temp.elements.find(el => !el.elementId?.trim()))) return;
 
       const result = await importFilePrint(file, listTemp, paperCount);
-      const request = { templates: result, size: { width: paperWidth, height: paperHeight, gap: COLUMN_GAP_MM, columns: paperCount} };
+      const request = { templates: result, size: { width: paperWidth, height: paperHeight, gap: columnGap, columns: paperCount} };
 
       if (result?.length > 0) {
         const response = await Api.postWithJson(PRINT.customizeBuilder, request, true);
@@ -247,7 +249,7 @@ const TemplateBuilder: React.FC = () => {
     } finally {
       e.target.value = '';
     }
-  }, [listTemp, paperWidth, paperHeight, paperCount]);
+  }, [listTemp, paperWidth, paperHeight, paperCount, columnGap]);
 
   // ── In thử template ───────────────────────────────────────────────────────
   const handlePrintTemp = useCallback(async () => {
@@ -289,7 +291,7 @@ const TemplateBuilder: React.FC = () => {
       };
       const request = {
         templates: [dto],
-        size: { width: 75, height: 55, gap: 3, columns: paperCount },
+        size: { width: paperWidth, height: paperHeight, gap: columnGap, columns: paperCount },
       };
 
       const response = await Api.postWithJson(PRINT.customizeBuilder, request, true);
@@ -298,7 +300,7 @@ const TemplateBuilder: React.FC = () => {
     } catch (err) {
       showSnackBar('FALSE', `Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-  }, [listTemp, paperWidth, paperHeight, paperCount]);
+  }, [listTemp, paperWidth, paperHeight, paperCount, columnGap]);
 
   // ── Render Properties Panel ───────────────────────────────────────────────
   const renderPropertiesPanel = () => {
@@ -318,6 +320,7 @@ const TemplateBuilder: React.FC = () => {
     const isBarcodeTooNarrow =
       element.type === TypePrint.BARCODE &&
       barcodeRequiredWidthMm > element.width;
+    const isElementTooWide = element.width > columnWidth;
 
     return (
       <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-y-auto h-full">
@@ -499,9 +502,14 @@ const TemplateBuilder: React.FC = () => {
               </div>
               <div />
             </div>
-            <input type="range" min="1" max={paperWidth} value={element.width}
+            <input type="range" min="1" max={columnWidth} value={element.width}
               onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, parseFloat(e.target.value), element.height)}
               className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-4" />
+            {isElementTooWide && (
+              <div className="text-xs text-red-600 mb-2">
+                Element width exceeds current column width of {columnWidth.toFixed(1)}mm.
+              </div>
+            )}
             <div className="flex gap-1 mb-4">
               {[20, 30, 40, 50].map(w => (
                 <button key={w}
@@ -599,21 +607,51 @@ const TemplateBuilder: React.FC = () => {
               <div>
                 <label className="text-xs text-gray-500 mr-2">W (mm)</label>
                 <input type="number" value={paperWidth}
-                  onChange={(e) => { if (parseInt(e.target.value) <= 300 / paperCount) setPaperWidth(parseInt(e.target.value) || 80); }}
+                  min={paperCount > 1 ? paperCount + columnGap * (paperCount - 1) : 1}
+                  max={300}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    const minWidth = paperCount > 1 ? paperCount + columnGap * (paperCount - 1) : 1;
+                    setPaperWidth(Math.max(minWidth, Math.min(300, value)));
+                  }}
                   className="w-16 px-2 py-1 text-sm border rounded" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mr-2">H (mm)</label>
                 <input type="number" value={paperHeight}
-                  onChange={(e) => { if (parseInt(e.target.value) <= 200 / paperCount) setPaperHeight(parseInt(e.target.value) || 50); }}
+                  min={1}
+                  max={200}
+                  onChange={(e) => setPaperHeight(parseInt(e.target.value) || 50)}
                   className="w-16 px-2 py-1 text-sm border rounded" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mr-2">Số lượng tem / hàng</label>
                 <input type="number" value={paperCount}
-                  onChange={(e) => setPaperCount(parseInt(e.target.value) || 1)}
+                  min={1}
+                  max={4}
+                  onChange={(e) => {
+                    const next = Math.max(1, Math.min(4, parseInt(e.target.value) || 1));
+                    const minWidth = next > 1 ? next + columnGap * (next - 1) : 1;
+                    setPaperCount(next);
+                    if (paperWidth < minWidth) setPaperWidth(minWidth);
+                  }}
                   className="w-16 px-2 py-1 text-sm border rounded" />
               </div>
+              {paperCount > 1 && (
+                <div>
+                  <label className="text-xs text-gray-500 mr-2">Gap (mm)</label>
+                  <input type="number" value={columnGap}
+                    min={0}
+                    max={Math.max(0, paperWidth - paperCount)}
+                    onChange={(e) => {
+                      const nextGap = Math.max(0, parseInt(e.target.value) || 0);
+                      const minWidth = paperCount > 1 ? paperCount + nextGap * (paperCount - 1) : 1;
+                      setColumnGap(nextGap);
+                      if (paperWidth < minWidth) setPaperWidth(minWidth);
+                    }}
+                    className="w-16 px-2 py-1 text-sm border rounded" />
+                </div>
+              )}
               <div className="flex items-center gap-2 ml-auto">
                 <button onClick={() => setListTemp(prev => prev.map(t => ({ ...t, elements: [] })))}
                   className="flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-500">
@@ -645,7 +683,7 @@ const TemplateBuilder: React.FC = () => {
               <div
                 ref={canvasWrapperRef}
                 className="flex justify-center"
-                style={{ gap: `${COLUMN_GAP_MM}mm` }}
+                style={{ gap: `${columnGap}mm` }}
               >
                 {Array.from({ length: paperCount }, (_, i) => (
                   <TemplateComp
@@ -655,7 +693,7 @@ const TemplateBuilder: React.FC = () => {
                     paperHeight={paperHeight}
                     paperWidth={paperWidth}
                     paperCount={paperCount}
-                    columnGapMm={COLUMN_GAP_MM}
+                    columnGapMm={columnGap}
                     selectElement={selectedElement}
                     setListTemp={setListTemp}
                     setSelectElement={setSelectedElement}
@@ -719,6 +757,7 @@ const TemplateBuilder: React.FC = () => {
       const temp = response.data;
       setPaperWidth(Number(temp.width));
       setPaperHeight(Number(temp.height));
+      setColumnGap(Number(temp.gap ?? COLUMN_GAP_MM));
       setTemplateName(temp.name);
       setPaperCount(temp.columns);
       setDescription(temp.description);
