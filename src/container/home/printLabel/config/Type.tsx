@@ -9,7 +9,7 @@ export interface Element {
   type: TypePrint;
   name: string;
   content: string | File | null;
-  widthPercent: WidthValue;
+  width: WidthValue; // mm
   height: number;
   fontSize?: number;
   column: number;

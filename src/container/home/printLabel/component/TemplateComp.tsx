@@ -5,6 +5,105 @@ import { KeyValue, TypePrint } from '@type';
 import { ImageIcon } from 'lucide-react';
 import { generateBarcode } from '@functions';
 
+interface ElementRendererProps {
+  element:         Element;
+  objectUrlCache:  React.RefObject<Map<File, string>>;
+}
+
+const ElementRenderer: React.FC<ElementRendererProps> = React.memo(({ element, objectUrlCache }) => {
+  const marginStyle = useMemo(() => ({ margin: `${element.margin || 0}mm` }), [element.margin]);
+
+  switch (element.type) {
+    case TypePrint.TEXT:
+      return (
+        <div style={{
+          ...marginStyle,
+          fontSize:   `${element.fontSize ?? 8}pt`,
+          fontWeight: element.fontWeight,
+          fontFamily: element.fontFamily,
+          textAlign:  element.textAlign,
+          height: '100%', display: 'flex', alignItems: 'center',
+          cursor: 'default', userSelect: 'none', width: '100%', overflow: 'hidden',
+        }}>
+          {element.content as string || 'Sample Text'}
+        </div>
+      );
+
+    case TypePrint.BARCODE:
+      return (
+        <div style={{ margin: `${element.margin || 0}mm`, height: '100%' }}
+          className="flex flex-col items-center justify-center w-full overflow-hidden">
+          {element.content ? (
+            <img src={generateBarcode(element.content as string, element.displayTime)}
+              alt="Barcode" style={{ height: '95%', width: '100%' }}
+              draggable="false" onDragStart={e => e.preventDefault()} />
+          ) : (
+            <div className="text-gray-400 text-sm">No barcode data</div>
+          )}
+        </div>
+      );
+
+    case TypePrint.DATETIME: {
+      const dateContent = element.content ? new Date(element.content as string) : null;
+      let formattedDate = 'Select date/time';
+      if (dateContent) {
+        formattedDate = element.displayTime === false
+          ? dateContent.toLocaleDateString('vi-VN')
+          : dateContent.toLocaleString('vi-VN', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit', hour12: false,
+            });
+      }
+      return (
+        <div style={{
+          ...marginStyle,
+          fontSize: `${element.fontSize ?? 8}pt`, fontFamily: element.fontFamily,
+          height: '100%', display: 'flex', alignItems: 'center',
+          width: '100%', overflow: 'hidden',
+        }}>
+          {formattedDate}
+        </div>
+      );
+    }
+
+    case TypePrint.IMAGE: {
+      let imgSrc: string | null = null;
+      if (element.content) {
+        if (typeof element.content === 'string') {
+          imgSrc = element.content;
+        } else if (element.content instanceof File) {
+          // Kiểm tra cache trước — nếu đã có thì dùng lại, không tạo mới
+          if (objectUrlCache.current.has(element.content)) {
+            imgSrc = objectUrlCache.current.get(element.content)!;
+          } else {
+            try {
+              const url = URL.createObjectURL(element.content);
+              objectUrlCache.current.set(element.content, url); // lưu vào cache
+              imgSrc = url;
+            } catch (e) {
+              console.error('createObjectURL error:', e);
+            }
+          }
+        }
+      }
+      return (
+        <div style={marginStyle} className="w-full h-full">
+          {imgSrc ? (
+            <img src={imgSrc} alt="Uploaded" className="w-full h-full object-cover"
+              draggable="false" onDragStart={e => e.preventDefault()} />
+          ) : (
+            <div className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50">
+              <ImageIcon className="mb-2 text-gray-400" size={32} />
+              <p className="text-xs text-gray-500">No image</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+    default: return null;
+  }
+});
+ElementRenderer.displayName = 'ElementRenderer';
 interface TemplateProps {
   index: number;
   elements: Element[];
@@ -51,103 +150,6 @@ function TemplateComp(props: TemplateProps) {
       objectUrlCache.current.clear();
     };
   }, []);
-  // ─────────────────────────────────────────────────────────────────────────
-  // ElementRenderer
-  // ─────────────────────────────────────────────────────────────────────────
-  const ElementRenderer: React.FC<{ element: Element }> = React.memo(({ element }) => {
-    const marginStyle = useMemo(() => ({ margin: `${element.margin || 0}mm` }), [element.margin]);
-
-    switch (element.type) {
-      case TypePrint.TEXT:
-        return (
-          <div style={{
-            ...marginStyle,
-            fontSize:   `${element.fontSize ?? 8}pt`,
-            fontWeight: element.fontWeight,
-            fontFamily: element.fontFamily,
-            textAlign:  element.textAlign,
-            height: '100%', display: 'flex', alignItems: 'center',
-            cursor: 'default', userSelect: 'none', width: '100%', overflow: 'hidden',
-          }}>
-            {element.content as string || 'Sample Text'}
-          </div>
-        );
-
-      case TypePrint.BARCODE:
-        return (
-          <div style={{ margin: `${element.margin || 0}mm`, height: '100%' }}
-            className="flex flex-col items-center justify-center w-full overflow-hidden">
-            {element.content ? (
-              <img src={generateBarcode(element.content as string, element.displayTime)}
-                alt="Barcode" style={{ height: '95%', width: '100%' }}
-                draggable="false" onDragStart={e => e.preventDefault()} />
-            ) : (
-              <div className="text-gray-400 text-sm">No barcode data</div>
-            )}
-          </div>
-        );
-
-      case TypePrint.DATETIME: {
-        const dateContent = element.content ? new Date(element.content as string) : null;
-        let formattedDate = 'Select date/time';
-        if (dateContent) {
-          formattedDate = element.displayTime === false
-            ? dateContent.toLocaleDateString('vi-VN')
-            : dateContent.toLocaleString('vi-VN', {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', hour12: false,
-              });
-        }
-        return (
-          <div style={{
-            ...marginStyle,
-            fontSize: `${element.fontSize ?? 8}pt`, fontFamily: element.fontFamily,
-            height: '100%', display: 'flex', alignItems: 'center',
-            width: '100%', overflow: 'hidden',
-          }}>
-            {formattedDate}
-          </div>
-        );
-      }
-
-      case TypePrint.IMAGE: {
-        let imgSrc: string | null = null;
-        if (element.content) {
-          if (typeof element.content === 'string') {
-            imgSrc = element.content;
-          } else if (element.content instanceof File) {
-            // Kiểm tra cache trước — nếu đã có thì dùng lại, không tạo mới
-            if (objectUrlCache.current.has(element.content)) {
-              imgSrc = objectUrlCache.current.get(element.content)!;
-            } else {
-              try {
-                const url = URL.createObjectURL(element.content);
-                objectUrlCache.current.set(element.content, url); // lưu vào cache
-                imgSrc = url;
-              } catch (e) {
-                console.error('createObjectURL error:', e);
-              }
-            }
-          }
-        }
-        return (
-          <div style={marginStyle} className="w-full h-full">
-            {imgSrc ? (
-              <img src={imgSrc} alt="Uploaded" className="w-full h-full object-cover"
-                draggable="false" onDragStart={e => e.preventDefault()} />
-            ) : (
-              <div className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50">
-                <ImageIcon className="mb-2 text-gray-400" size={32} />
-                <p className="text-xs text-gray-500">No image</p>
-              </div>
-            )}
-          </div>
-        );
-      }
-      default: return null;
-    }
-  });
-  ElementRenderer.displayName = 'ElementRenderer';
 
   // ─────────────────────────────────────────────────────────────────────────
   // handleDragElementMouseDown
@@ -249,7 +251,7 @@ function TemplateComp(props: TemplateProps) {
 
       // ── Xác định cột đích ─────────────────────────────────────────────
       // Lấy tâm element để xác định cột (tránh nhảy cột sớm ở biên)
-      const elCenterX   = elX_wrapper + (props.elements.find(el => el.id === elementId)?.widthPercent ?? 50) / 100 * colWidthMm / 2;
+      const elCenterX   = elX_wrapper + (props.elements.find(el => el.id === elementId)?.width ?? 20) / 2;
       const rawCol      = Math.floor(elCenterX / (colWidthMm + columnGapMm));
       const targetCol   = Math.max(0, Math.min(rawCol, paperCount - 1));
       const colOffset   = targetCol * (colWidthMm + columnGapMm);
@@ -269,7 +271,7 @@ function TemplateComp(props: TemplateProps) {
         const currentEl = next[sourceIndex].elements.find(el => el.id === elementId);
         if (!currentEl) return prev;
 
-        const elWidthMm = (currentEl.widthPercent / 100) * colWidthMm;
+        const elWidthMm = currentEl.width;
         const clampedX  = Math.max(0, Math.min(newXInCol, colWidthMm  - elWidthMm));
         const clampedY  = Math.max(0, Math.min(newYInCol, paperHeight - currentEl.height));
 
@@ -337,7 +339,7 @@ function TemplateComp(props: TemplateProps) {
             position: 'absolute',
             left:     `${element.x}mm`,
             top:      `${element.y}mm`,
-            width:    `${element.widthPercent}%`,
+            width:    `${element.width}mm`,
             height:   `${element.height}mm`,
             zIndex:   props.selectElement.value === element.id || draggedId === element.id ? 20 : 10,
           }}
@@ -360,7 +362,7 @@ function TemplateComp(props: TemplateProps) {
             `}
           >
             <div className="w-full h-full relative">
-              <ElementRenderer element={element} />
+              <ElementRenderer element={element} objectUrlCache={objectUrlCache} />
             </div>
           </div>
         </div>

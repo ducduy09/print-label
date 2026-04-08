@@ -5,7 +5,7 @@ import ToggleButton from '@component/button/ToggleButton';
 import DropdownButton from '@component/dropdown/DropdownButton';
 import ModalChoose from '@component/modal/ModalChoose';
 import BackgroundTemplate from '@container/template/BackgroundTemplate';
-import { useUnsavedChanges } from '@functions';
+import { getBarcodeWidthMm, useUnsavedChanges } from '@functions';
 import { listFontPrint } from '@src/setup/DataInit';
 import { DataPrintField, KeyValue, PrinterBuilderRequest, TemplateProps, TypePrint } from '@type';
 import { Columns, File, ListOrdered, Plus, Printer, Trash2 } from 'lucide-react';
@@ -102,7 +102,7 @@ const TemplateBuilder: React.FC = () => {
         : type === TypePrint.BARCODE ? '9385241840319'
         : type === TypePrint.TEXT   ? 'Sample Text'
         : '',
-      widthPercent: 40,
+      width: 40,
       height: newElementHeight,   // mm
       fontSize: type !== TypePrint.IMAGE ? 8 : undefined, // pt
       fontWeight: 'normal',
@@ -178,17 +178,17 @@ const TemplateBuilder: React.FC = () => {
 
   const updateElementSize = useCallback((
     index: number, id: number, eId: string,
-    widthPercent: WidthValue, height: number, // height = mm
+    width: WidthValue, height: number, // width/height = mm
   ) => {
     if (eId && eId.includes('ABS')) {
       showSnackBar('WARNING', 'Cannot resize ABS elements.');
       return;
     }
     setIsChangeData(true);
-    const safeWidth = Math.max(5, Math.min(100, widthPercent));
+    const safeWidth = Math.max(1, Math.min(paperWidth, width));
     setListTemp(prev => prev.map((temp, i) =>
       i === index
-        ? { ...temp, elements: temp.elements.map(el => el.id === id ? { ...el, widthPercent: safeWidth, height } : el) }
+        ? { ...temp, elements: temp.elements.map(el => el.id === id ? { ...el, width: safeWidth, height } : el) }
         : temp
     ));
   }, []);
@@ -210,6 +210,17 @@ const TemplateBuilder: React.FC = () => {
     if (file) updateElementContent(index, id, file);
   }, [updateElementContent]);
 
+  const getInvalidBarcode = useCallback(() => {
+    return listTemp
+      .flatMap(temp => temp.elements)
+      .find(el =>
+        el.type === TypePrint.BARCODE &&
+        typeof el.content === 'string' &&
+        el.content.trim() !== '' &&
+        getBarcodeWidthMm(el.content) > el.width
+      );
+  }, [listTemp]);
+
   // ── In từ Excel ───────────────────────────────────────────────────────────
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -222,7 +233,7 @@ const TemplateBuilder: React.FC = () => {
       if (listTemp.find(temp => temp.elements.find(el => !el.elementId?.trim()))) return;
 
       const result = await importFilePrint(file, listTemp, paperCount);
-      const request = { templates: result, size: { width: paperWidth, height: paperHeight, gap: COLUMN_GAP_MM } };
+      const request = { templates: result, size: { width: paperWidth, height: paperHeight, gap: COLUMN_GAP_MM, columns: paperCount} };
 
       if (result?.length > 0) {
         const response = await Api.postWithJson(PRINT.customizeBuilder, request, true);
@@ -257,7 +268,7 @@ const TemplateBuilder: React.FC = () => {
             name:   element.elementId,
             type:   element.type.toLocaleUpperCase() as TypePrint,
             value:  typeof element.content === 'string' ? element.content : '',
-            width:  element.widthPercent,
+            width:  element.width,
             height: element.height,
             column: element.column,
             x: element.x,
@@ -278,7 +289,7 @@ const TemplateBuilder: React.FC = () => {
       };
       const request = {
         templates: [dto],
-        size: { width: paperWidth, height: paperHeight, gap: 3 },
+        size: { width: 75, height: 55, gap: 3, columns: paperCount },
       };
 
       const response = await Api.postWithJson(PRINT.customizeBuilder, request, true);
@@ -298,6 +309,15 @@ const TemplateBuilder: React.FC = () => {
 
     const element = tempData.elements.find(el => el.id === selectedElement.value);
     if (!element) return null;
+    const barcodeRequiredWidthMm =
+      element.type === TypePrint.BARCODE &&
+      typeof element.content === 'string' &&
+      element.content.trim() !== ''
+        ? getBarcodeWidthMm(element.content)
+        : 0;
+    const isBarcodeTooNarrow =
+      element.type === TypePrint.BARCODE &&
+      barcodeRequiredWidthMm > element.width;
 
     return (
       <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-y-auto h-full">
@@ -349,8 +369,30 @@ const TemplateBuilder: React.FC = () => {
           {element.type === TypePrint.BARCODE && (
             <>
               <input value={element.content as string} placeholder={t('barcodeData')}
-                onChange={(e) => updateElementContent(selectedElement.id, element.id, e.target.value)}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  if (nextValue.trim() === '') {
+                    updateElementContent(selectedElement.id, element.id, nextValue);
+                    return;
+                  }
+
+                  const requiredWidth = getBarcodeWidthMm(nextValue);
+                  if (requiredWidth > element.width) {
+                    showSnackBar(
+                      'WARNING',
+                      `Barcode needs at least ${requiredWidth.toFixed(1)}mm, current width is ${element.width.toFixed(1)}mm.`
+                    );
+                    return;
+                  }
+
+                  updateElementContent(selectedElement.id, element.id, nextValue);
+                }}
                 className="w-full px-3 py-2 border rounded-md text-sm" />
+              {barcodeRequiredWidthMm > 0 && (
+                <div className={`mt-2 text-xs ${isBarcodeTooNarrow ? 'text-red-600' : 'text-gray-500'}`}>
+                  Required min width: {barcodeRequiredWidthMm.toFixed(1)}mm
+                </div>
+              )}
               <div className="flex items-center justify-between mt-2">
                 Display content:
                 <ToggleButton defaultValue={element.displayTime !== false}
@@ -398,7 +440,7 @@ const TemplateBuilder: React.FC = () => {
             <>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Font Size (pt)</label>
-                <input type="number" value={element.fontSize} step={0.5}
+                <input type="number" value={element.fontSize} step={1}
                   onChange={(e) => updateElementStyle(selectedElement.id, element.id, { fontSize: parseFloat(e.target.value) || 0 })}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500" />
               </div>
@@ -427,13 +469,13 @@ const TemplateBuilder: React.FC = () => {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">X (Left)</label>
-                <input type="number" value={+element.x.toFixed(1)} step={0.5}
+                <input type="number" value={+element.x.toFixed(1)} step={1}
                   onChange={(e) => updateElementStyle(selectedElement.id, element.id, { x: parseFloat(e.target.value) || 0 })}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Y (Top)</label>
-                <input type="number" value={+element.y.toFixed(1)} step={0.5}
+                <input type="number" value={+element.y.toFixed(1)} step={1}
                   onChange={(e) => updateElementStyle(selectedElement.id, element.id, { y: parseFloat(e.target.value) || 0 })}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500" />
               </div>
@@ -442,45 +484,37 @@ const TemplateBuilder: React.FC = () => {
 
           <hr className="border-gray-100" />
 
-          {/* Dimensions — width % + height mm */}
+          {/* Dimensions — width/height mm */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Dimensions</label>
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Width (mm)</label>
-                <input type="number" value={+((element.widthPercent / 100) * paperWidth).toFixed(1)} step={0.5}
+                <input type="number" value={+element.width.toFixed(1)} step={1}
                   onChange={(e) => {
                     const mm = parseFloat(e.target.value) || 0;
-                    updateElementSize(selectedElement.id, element.id, element.elementId, (mm / paperWidth) * 100, element.height);
+                    updateElementSize(selectedElement.id, element.id, element.elementId, mm, element.height);
                   }}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500" />
+                  className={`w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${isBarcodeTooNarrow ? 'border-red-500' : 'border-gray-300'}`} />
               </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Width (%)</label>
-                <div className="relative">
-                  <input type="number" value={Math.round(element.widthPercent)}
-                    onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, parseInt(e.target.value), element.height)}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500" />
-                  <span className="absolute right-2 top-1 text-xs text-gray-400">%</span>
-                </div>
-              </div>
+              <div />
             </div>
-            <input type="range" min="5" max="100" value={element.widthPercent}
-              onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, parseInt(e.target.value), element.height)}
+            <input type="range" min="1" max={paperWidth} value={element.width}
+              onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, parseFloat(e.target.value), element.height)}
               className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-4" />
             <div className="flex gap-1 mb-4">
-              {[25, 33, 50, 100].map(w => (
+              {[20, 30, 40, 50].map(w => (
                 <button key={w}
                   onClick={() => updateElementSize(selectedElement.id, element.id, element.elementId, w, element.height)}
-                  className={`flex-1 text-xs py-1 border rounded hover:bg-gray-50 ${Math.round(element.widthPercent) === w ? 'bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-600'}`}>
-                  {w === 33 ? '1/3' : `${w}%`}
+                  className={`flex-1 text-xs py-1 border rounded hover:bg-gray-50 ${Math.round(element.width) === w ? 'bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-600'}`}>
+                  {`${w}mm`}
                 </button>
               ))}
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Height (mm)</label>
-              <input type="range" value={element.height} min="2" max="55" step={0.5}
-                onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, element.widthPercent, parseFloat(e.target.value))}
+              <input type="range" value={element.height} min="2" max="55" step={1}
+                onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, element.width, parseFloat(e.target.value))}
                 className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
               <div className="text-right text-xs text-gray-400 mt-1">{element.height.toFixed(1)} mm</div>
             </div>
@@ -700,7 +734,7 @@ const TemplateBuilder: React.FC = () => {
         padding:      0,
         margin:       0,
         column:       Number(el.column),
-        widthPercent: Number(el.width),
+        width: Number(el.width),
         height:       Number(el.height),      // mm
         fontSize:     getPropertyEID(el).fontSize,   // pt
         displayTime:  getPropertyEID(el).displayTime,

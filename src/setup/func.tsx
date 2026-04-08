@@ -549,6 +549,37 @@ export const generateBarcode = (
   }
 };
 
+export const getBarcodeWidth = (text: string): number => {
+  if (!text) return 0;
+
+  const canvas = document.createElement("canvas");
+
+  try {
+    JsBarcode(canvas, text, {
+      format: "CODE128",
+      width: 2,
+      height: 50,
+      displayValue: false,
+      margin: 0,
+      background: "#ffffff",
+      lineColor: "#000000",
+    });
+
+    return canvas.width;
+  } catch (error) {
+    console.error("Barcode width calculation error:", error);
+    return 0;
+  }
+};
+
+export const getBarcodeWidthMm = (text: string, dpi: number = 96): number => {
+  const widthPx = getBarcodeWidth(text);
+  if (widthPx <= 0 || dpi <= 0) return 0;
+
+  // 1 inch = 25.4 mm
+  return (widthPx / dpi) * 25.4;
+};
+
 export const renderImageByDataByte = (data: string) => {
   return `data:image/png;base64,${data}`;
 }

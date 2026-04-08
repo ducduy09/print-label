@@ -100,7 +100,7 @@ export interface Element {
   elementId:    string;
   name:         string;
   content:      string | File;
-  widthPercent: number;   // % chiều rộng cột
+  width: number;   // % chiều rộng cột
   height:       number;   // mm
   fontSize?:    number;   // pt
   fontWeight?:  string;

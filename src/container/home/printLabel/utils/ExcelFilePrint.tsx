@@ -64,7 +64,7 @@ export function importFilePrint(file: File, listTemp: Templates[], ppCount: numb
                   name: element.elementId,
                   type: element.type.toLocaleUpperCase() as TypePrint,
                   value: cellValue,
-                  width: element.widthPercent,
+                  width: element.width,
                   height: element.height,
                   column: element.column,
                   x: element.x,

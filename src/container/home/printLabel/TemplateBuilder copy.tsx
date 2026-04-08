@@ -24,7 +24,7 @@ interface Element {
   type: 'text' | 'datetime' | 'image' | 'barcode';
   name: string;
   content: string | File | null;
-  widthPercent: WidthValue;
+  width: WidthValue;
   height: number;
   fontSize?: number;
   fontWeight?: 'normal' | 'bold';
@@ -94,7 +94,7 @@ const TemplateBuilder: React.FC = () => {
       elementId: '',
       name: getElementName(type),
       content: type === 'datetime' ? new Date().toISOString().slice(0, 16) : type === 'barcode' ? '9385241840319' : type === 'text' ? 'Sample Text' : '',
-      widthPercent: type == 'datetime' ? 40 : 100, // Mặc định full width
+      width: type == 'datetime' ? 40 : 100, // Mặc định full width
       height: newElementHeight,
       fontSize: type != 'image' ? 10 : undefined,
       fontWeight: 'normal',
@@ -176,17 +176,17 @@ const TemplateBuilder: React.FC = () => {
   };
 
 
-  const updateElementSize = (id: number, eId: string, widthPercent: WidthValue, height: number) => {
+  const updateElementSize = (id: number, eId: string, width: WidthValue, height: number) => {
     setIsChangeData(true);
     if(eId != null && eId.includes('ABS')) {
       showSnackBar('WARNING', 'Cannot resize ABS elements.');
       return;
     }
     // Giới hạn width từ 5% đến 100%
-    const safeWidth = Math.max(5, Math.min(100, widthPercent));
+    const safeWidth = Math.max(5, Math.min(100, width));
     // Loại bỏ calculatePositions
     setElements((prev) => 
-      prev.map(el => el.id === id ? { ...el, widthPercent: safeWidth, height } : el)
+      prev.map(el => el.id === id ? { ...el, width: safeWidth, height } : el)
     );
   };
 
@@ -239,7 +239,7 @@ const TemplateBuilder: React.FC = () => {
     if (!currentElement) return;
 
     // Kích thước element (tính bằng px)
-    const elementWidthPx = (currentElement.widthPercent / 100) * containerRect.width;
+    const elementWidthPx = (currentElement.width / 100) * containerRect.width;
     const elementHeightPx = currentElement.height;
 
     // Giới hạn kéo trong container
@@ -291,7 +291,7 @@ const TemplateBuilder: React.FC = () => {
       
       if (element) {
         // Chuyển đổi tọa độ sang mm tuyệt đối
-        const widthMm = (element.widthPercent / 100) * pWidth;
+        const widthMm = (element.width / 100) * pWidth;
         const heightMm = element.height / MM_TO_PX;
         const xMm = element.x / MM_TO_PX;
         const yMm = element.y / MM_TO_PX;
@@ -628,7 +628,7 @@ const TemplateBuilder: React.FC = () => {
                             name: element.elementId,
                             type: String(fieldType).toLocaleUpperCase() as TypePrint,
                             value: cellValue,
-                            width: element.widthPercent,
+                            width: element.width,
                             height: element.height,
                             x: element.x,
                             y: element.y,
@@ -713,7 +713,7 @@ const TemplateBuilder: React.FC = () => {
                 name: element.elementId,
                 type: element.type.toLocaleUpperCase() as TypePrint,
                 value: typeof element.content === 'string' ? element.content as string : '',
-                width: element.widthPercent,
+                width: element.width,
                 height: element.height,
                 x: element.x,
                 y: element.y,
@@ -884,7 +884,7 @@ const TemplateBuilder: React.FC = () => {
             itemId: id,
             x: el.x, // Gửi tọa độ pixel
             y: el.y, // Gửi tọa độ pixel
-            width: el.widthPercent,
+            width: el.width,
             height: el.height,
             content: imgSrc?.toString().includes("blob:http") ? '' : imgSrc, // Nếu là Blob URL thì gửi chuỗi rỗng
             // Cần lưu thêm các thuộc tính style khác nếu API hỗ trợ
@@ -1057,7 +1057,7 @@ const TemplateBuilder: React.FC = () => {
                               position: 'absolute',
                               left: `${element.x}px`,
                               top: `${element.y}px`,
-                              width: `${element.widthPercent}%`, // Width theo %
+                              width: `${element.width}%`, // Width theo %
                               height: `${element.height}px`,
                               zIndex: selectedElement === element.id || draggedElementId === element.id ? 20 : 10, // Đưa element đang thao tác lên trên
                           }}
@@ -1284,7 +1284,7 @@ const TemplateBuilder: React.FC = () => {
                               <label className="text-xs text-gray-500 mb-1 block">Width (mm)</label>
                               <input
                                   type="number"
-                                  value={Math.round((element.widthPercent / 100) * MM_TO_PX_RATIO)}
+                                  value={Math.round((element.width / 100) * MM_TO_PX_RATIO)}
                                   onChange={(e) => {
                                       const mm = parseInt(e.target.value) || 0;
                                       const newPercent = (mm / paperWidth) * 100;
@@ -1298,7 +1298,7 @@ const TemplateBuilder: React.FC = () => {
                               <div className="relative">
                                   <input
                                       type="number"
-                                      value={Math.round(element.widthPercent)}
+                                      value={Math.round(element.width)}
                                       onChange={(e) => updateElementSize(element.id, element.elementId, parseInt(e.target.value), element.height)}
                                       className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                                   />
@@ -1311,7 +1311,7 @@ const TemplateBuilder: React.FC = () => {
                         <input
                           type="range"
                           min="5" max="100"
-                          value={element.widthPercent}
+                          value={element.width}
                           onChange={(e) => updateElementSize(element.id, element.elementId, parseInt(e.target.value), element.height)}
                           className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-4"
                         />
@@ -1322,7 +1322,7 @@ const TemplateBuilder: React.FC = () => {
                               <button
                                   key={w}
                                   onClick={() => updateElementSize(element.id, element.elementId, w, element.height)}
-                                  className={`flex-1 text-xs py-1 border rounded hover:bg-gray-50 ${Math.round(element.widthPercent) === w ? 'bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                                  className={`flex-1 text-xs py-1 border rounded hover:bg-gray-50 ${Math.round(element.width) === w ? 'bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-600'}`}
                               >
                                   {w === 33 ? '1/3' : `${w}%`}
                               </button>
@@ -1335,7 +1335,7 @@ const TemplateBuilder: React.FC = () => {
                             type="range"
                             value={element.height}
                             min="10" max="300"
-                            onChange={(e) => updateElementSize(element.id, element.elementId, element.widthPercent, parseInt(e.target.value))}
+                            onChange={(e) => updateElementSize(element.id, element.elementId, element.width, parseInt(e.target.value))}
                             className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                           />
                           <div className="text-right text-xs text-gray-400 mt-1">{element.height}px</div>
@@ -1436,7 +1436,7 @@ const TemplateBuilder: React.FC = () => {
           y: Number(el.y), // Lấy tọa độ pixel từ API
           padding: 4,
           margin: 0,
-          widthPercent: Number(el.width),
+          width: Number(el.width),
           height: Number(el.height),
           fontSize: getPropertyEID(el).eId ? (el.properties.fontSize || 10) : 10,
           displayTime: getPropertyEID(el).displayTime, //  Mặc định hiển thị giờ khi load template

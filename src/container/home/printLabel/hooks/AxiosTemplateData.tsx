@@ -55,7 +55,7 @@ export const handleSaveTemplate = async (elements: Templates[], data: any ) => {
               itemId: id,
               x: el.x, // Gửi tọa độ pixel
               y: el.y, // Gửi tọa độ pixel
-              width: el.widthPercent,
+              width: el.width,
               height: el.height,
               column: el.column,
               content: imgSrc ?? '', // Nếu là Blob URL thì gửi chuỗi rỗng
