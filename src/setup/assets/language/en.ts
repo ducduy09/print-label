@@ -327,6 +327,8 @@ export default {
   listTemplate: 'List Templates',
   barcodeData: 'Barcode Data',
   elementId: 'Element ID',
+  exportTemplate: 'Export Template',
+  importTemplate: 'Import Template',
   confirmNotSave: 'Your changes have not been saved. Are you sure you want to exit?',
   confirmNotSaveDesc: 'If you exit now, all unsaved changes will be lost.',
 };

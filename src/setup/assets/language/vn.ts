@@ -327,6 +327,8 @@ export default {
   listTemplate: 'Danh sách mẫu',
   barcodeData: 'Dữ liệu mã vạch',
   elementId: 'Mã thành phần',
+  exportTemplate: 'Xuất Mẫu',
+  importTemplate: 'Nhập Mẫu',
   confirmNotSave: 'Bạn có chắc muốn thoát khi chưa lưu không?',
   confirmNotSaveDesc: 'Các thay đổi của bạn sẽ không được lưu lại nếu bạn thoát bây giờ.',
 };

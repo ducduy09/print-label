@@ -8,7 +8,7 @@ import BackgroundTemplate from '@container/template/BackgroundTemplate';
 import { getBarcodeWidthMm, useUnsavedChanges } from '@functions';
 import { listFontPrint } from '@src/setup/DataInit';
 import { DataPrintField, KeyValue, PrinterBuilderRequest, TemplateProps, TypePrint } from '@type';
-import { Columns, File, ListOrdered, Plus, Printer, Trash2 } from 'lucide-react';
+import { Columns, Download, File, ListOrdered, Plus, Printer, Trash2 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TemplateComp from './component/TemplateComp';
@@ -17,6 +17,12 @@ import { Element, Templates, WidthValue } from './config/Type';
 import { handleDeleteTemp, handleSaveTemplate } from './hooks/AxiosTemplateData';
 import TemplateList from './TemplateList';
 import { importFilePrint } from './utils/ExcelFilePrint';
+import {
+  buildTemplateDesignExport,
+  downloadJsonFile,
+  importTemplateDesignFromFile,
+  TemplateDesignExportV1,
+} from './utils/TemplateDesignJson';
 import LoadingModal from '@component/loading/LoadingModal';
 import NetworkErrorModal from '@component/modal/NetworkErrorModal';
 import LoadingManager from '@component/loading/LoadingManager';
@@ -73,6 +79,7 @@ const TemplateBuilder: React.FC = () => {
   const [templates,       setTemplates]       = useState<TemplateProps[]>([]);
 
   const excelRef        = useRef(null);
+  const importRef       = useRef(null);
   const modalConfirmRef = useRef<any>(null);
 
   // ── paperCount thay đổi: đồng bộ listTemp ─────────────────────────────────
@@ -250,6 +257,96 @@ const TemplateBuilder: React.FC = () => {
       e.target.value = '';
     }
   }, [listTemp, paperWidth, paperHeight, paperCount, columnGap]);
+
+  const applyImportedDesign = useCallback((data: TemplateDesignExportV1) => {
+    const { meta } = data;
+    const count = Math.min(4, Math.max(1, Math.floor(meta.paperCount)));
+    const gap = Math.max(0, Number(meta.columnGap) || COLUMN_GAP_MM);
+    const cw = getColumnWidth(meta.paperWidth, count, gap);
+
+    const importBatchBase = Date.now();
+    const normalized: Templates[] = [];
+    for (let i = 0; i < count; i++) {
+      const src = data.columns[i];
+      if (!src) {
+        normalized.push(emptyTemplate(cw, meta.paperHeight, gap));
+        continue;
+      }
+      normalized.push({
+        templateId: String(src.templateId || Date.now()),
+        name: src.name,
+        gap,
+        description: src.description,
+        status: src.status || 'ACTIVE',
+        width: cw,
+        height: meta.paperHeight,
+        createdAt: src.createdAt || new Date().toISOString(),
+        elements: src.elements.map((el, j) => ({
+          ...el,
+          id: importBatchBase + i * 100000 + j,
+          column: i,
+          width: Math.max(1, Math.min(cw, el.width)),
+          content: el.content,
+        })),
+      });
+    }
+
+    setTemplateName(meta.templateName);
+    setDescription(meta.description);
+    setTemplateID('');
+    setPaperWidth(meta.paperWidth);
+    setPaperHeight(meta.paperHeight);
+    setPaperCount(count);
+    setColumnGap(gap);
+    setListTemp(normalized);
+    setSelectedElement({ id: -1, value: 0 });
+    setIsChangeData(true);
+    showSnackBar('SUCCESS', 'Đã import mẫu từ JSON.');
+  }, []);
+
+  const handleExportTemplate = useCallback(() => {
+    const payload = buildTemplateDesignExport({
+      templateName,
+      description,
+      templateId: templateID,
+      paperWidth,
+      paperHeight,
+      paperCount,
+      columnGap,
+      listTemp,
+    });
+    const base =
+      (templateName || 'template').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80) || 'template';
+    downloadJsonFile(`${base}-${Date.now()}.json`, payload);
+  }, [
+    templateName,
+    description,
+    templateID,
+    paperWidth,
+    paperHeight,
+    paperCount,
+    columnGap,
+    listTemp,
+  ]);
+
+  const handleImportTemplate = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const data = await importTemplateDesignFromFile(file);
+        applyImportedDesign(data);
+      } catch (err) {
+        showSnackBar(
+          'FALSE',
+          `Import JSON: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`,
+        );
+      } finally {
+        e.target.value = '';
+      }
+    },
+    [applyImportedDesign],
+  );
 
   // ── In thử template ───────────────────────────────────────────────────────
   const handlePrintTemp = useCallback(async () => {
@@ -588,6 +685,28 @@ const TemplateBuilder: React.FC = () => {
         <input ref={excelRef} type="file"
           accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           onChange={handleFileChange} className="hidden" />
+        <h3 className="font-semibold text-gray-800 mt-8 mb-4">{t('importTemplate')}</h3>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={handleExportTemplate}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-teal-300 rounded-lg hover:bg-teal-50 transition text-teal-800">
+            <Download size={18} /><span className="text-sm">{t('exportTemplate')} (JSON)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => (importRef.current as HTMLInputElement | null)?.click()}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 transition text-gray-500">
+            <File size={18} /><span className="text-sm">{t('importTemplate')} (JSON)</span>
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleImportTemplate}
+            className="hidden"
+          />
+        </div>
       </div>
 
       {/* Main */}
