@@ -50,6 +50,10 @@ export const handleSaveTemplate = async (elements: Templates[], data: any ) => {
                 }
                 id = 4; 
                 break;
+              case TypePrint.QRCODE: id = 5; break;
+              case TypePrint.GEOMETRY_RECTANGLE: id = 6; break;
+              case TypePrint.GEOMETRY_CIRCLE: id = 7; break;
+              case TypePrint.GEOMETRY_LINE: id = 8; break;
             }
             return {
               itemId: id,
@@ -68,7 +72,8 @@ export const handleSaveTemplate = async (elements: Templates[], data: any ) => {
                   fontFamily: el.fontFamily,
                   padding: el.padding,
                   margin: el.margin,
-                  displayTime: el.displayTime ? true : false
+                  displayTime: el.displayTime ? true : false,
+                  strokeWidthMm: el.strokeWidthMm,
               } 
             }
           })

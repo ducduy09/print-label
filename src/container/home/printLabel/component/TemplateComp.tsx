@@ -4,6 +4,70 @@ import { Element, Templates } from '../config/Type';
 import { KeyValue, TypePrint } from '@type';
 import { ImageIcon } from 'lucide-react';
 import { generateBarcode } from '@functions';
+import QRCode from 'qrcode';
+
+const DEFAULT_GEOMETRY_STROKE_MM = 0.35;
+
+/** Độ dày nét (mm) → strokeWidth trong viewBox 0..100 */
+function geometryStrokeViewUnits(
+  strokeWidthMm: number | undefined,
+  wMm: number,
+  hMm: number,
+  kind: TypePrint,
+): number {
+  const mm = Math.max(0.05, Math.min(strokeWidthMm ?? DEFAULT_GEOMETRY_STROKE_MM, 3));
+  if (kind === TypePrint.GEOMETRY_LINE) {
+    const h = Math.max(hMm, 0.2);
+    return Math.min(80, (mm / h) * 100);
+  }
+  const ref = Math.max(Math.min(wMm, hMm), 0.2);
+  return Math.min(80, (mm / ref) * 100);
+}
+
+const QrCodePreview: React.FC<{ text: string }> = React.memo(({ text }) => {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    const t = text?.trim();
+    if (!t) {
+      setDataUrl(null);
+      setErr(false);
+      return;
+    }
+    let cancelled = false;
+    setErr(false);
+    QRCode.toDataURL(t, { width: 320, margin: 1, errorCorrectionLevel: 'M' })
+      .then((url) => {
+        if (!cancelled) setDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDataUrl(null);
+          setErr(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [text]);
+
+  if (!text?.trim()) {
+    return <div className="text-gray-400 text-sm flex items-center justify-center h-full">Nhập nội dung QR</div>;
+  }
+  if (err) return <div className="text-red-500 text-xs">Không tạo được QR</div>;
+  if (!dataUrl) {
+    return <div className="text-gray-400 text-xs flex items-center justify-center h-full">…</div>;
+  }
+  return (
+    <img
+      src={dataUrl}
+      alt="QR"
+      className="w-full h-full object-contain"
+      draggable="false"
+      onDragStart={e => e.preventDefault()}
+    />
+  );
+});
+QrCodePreview.displayName = 'QrCodePreview';
 
 interface ElementRendererProps {
   element:         Element;
@@ -100,6 +164,57 @@ const ElementRenderer: React.FC<ElementRendererProps> = React.memo(({ element, o
         </div>
       );
     }
+
+    case TypePrint.QRCODE:
+      return (
+        <div style={{ ...marginStyle, height: '100%' }} className="flex items-center justify-center w-full overflow-hidden">
+          <QrCodePreview text={(element.content as string) || ''} />
+        </div>
+      );
+
+    case TypePrint.GEOMETRY_LINE: {
+      const sw = geometryStrokeViewUnits(element.strokeWidthMm, element.width, element.height, TypePrint.GEOMETRY_LINE);
+      return (
+        <div style={marginStyle} className="w-full h-full flex items-center">
+          <svg className="w-full h-full block" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+            <line x1="0" y1="50" x2="100" y2="50" stroke="#111827" strokeWidth={sw} strokeLinecap="round" />
+          </svg>
+        </div>
+      );
+    }
+
+    case TypePrint.GEOMETRY_CIRCLE: {
+      const sw = geometryStrokeViewUnits(element.strokeWidthMm, element.width, element.height, TypePrint.GEOMETRY_CIRCLE);
+      const r = Math.max(8, 50 - sw / 2);
+      return (
+        <div style={marginStyle} className="w-full h-full flex items-center justify-center">
+          <svg className="w-full h-full block" viewBox="0 0 100 100" aria-hidden>
+            <circle cx="50" cy="50" r={r} fill="none" stroke="#111827" strokeWidth={sw} />
+          </svg>
+        </div>
+      );
+    }
+
+    case TypePrint.GEOMETRY_RECTANGLE: {
+      const sw = geometryStrokeViewUnits(element.strokeWidthMm, element.width, element.height, TypePrint.GEOMETRY_RECTANGLE);
+      const inset = sw / 2;
+      return (
+        <div style={marginStyle} className="w-full h-full flex items-center justify-center">
+          <svg className="w-full h-full block" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+            <rect
+              x={inset}
+              y={inset}
+              width={100 - sw}
+              height={100 - sw}
+              fill="none"
+              stroke="#111827"
+              strokeWidth={sw}
+            />
+          </svg>
+        </div>
+      );
+    }
+
     default: return null;
   }
 });
@@ -355,11 +470,11 @@ function TemplateComp(props: TemplateProps) {
           <div
             onMouseDown={e => handleDragElementMouseDown(e, element.id, element.elementId)}
             className={`h-full border transition-all
-              ${element.type !== TypePrint.IMAGE
-                ? props.selectElement.value === element.id
+              ${element.type === TypePrint.IMAGE
+                ? 'border-white'
+                : props.selectElement.value === element.id
                   ? 'border-blue-500 bg-blue-50/10 cursor-grab'
                   : 'border-gray-300 hover:border-gray-400 cursor-grab'
-                : 'border-white'
               }
               ${draggedId === element.id ? 'opacity-70 cursor-grabbing' : ''}
             `}

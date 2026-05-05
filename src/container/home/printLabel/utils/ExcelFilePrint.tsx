@@ -62,7 +62,7 @@ export function importFilePrint(file: File, listTemp: Templates[], ppCount: numb
                 }
                 return {
                   name: element.elementId,
-                  type: element.type.toLocaleUpperCase() as TypePrint,
+                  type: element.type,
                   value: cellValue,
                   width: element.width,
                   height: element.height,
@@ -74,6 +74,7 @@ export function importFilePrint(file: File, listTemp: Templates[], ppCount: numb
                     displayTime: element.displayTime,
                     elementId: element.elementId,
                     fontFamily: element.fontFamily,
+                    strokeWidthMm: element.strokeWidthMm,
                   }
                 };
               })

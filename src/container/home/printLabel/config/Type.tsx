@@ -21,6 +21,8 @@ export interface Element {
   y: number; // Tọa độ Y tuyệt đối (pixels)
   displayTime?: boolean; // Tùy chọn hiển thị giờ cho datetime
   fontFamily?: string;
+  /** Độ dày nét (mm) — đường kẻ, hình tròn, hình chữ nhật */
+  strokeWidthMm?: number;
   // textPosition?: boolean; // Tùy chọn hiển thị position text barcode
 }
 

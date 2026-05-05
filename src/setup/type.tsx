@@ -46,16 +46,32 @@ export enum TypePrint {
     TEXT = 'TEXT',
     DATETIME = 'DATETIME',
     BARCODE = 'BARCODE',
+    QRCODE = 'QRCODE',
+    /** Gửi API: geometry.rectangle */
+    GEOMETRY_RECTANGLE = 'GEOMETRY_RECTANGLE',
+    /** Gửi API: geometry.circle */
+    GEOMETRY_CIRCLE = 'GEOMETRY_CIRCLE',
+    /** Gửi API: geometry.line */
+    GEOMETRY_LINE = 'GEOMETRY_LINE',
 }
 
 // Tương đương với PrinterBuilderRequest.DataPrintField
 export interface DataPrintField {
     name: string;
     value: string;
-    type: TypePrint;
+    type: TypePrint | string;
     x: number; // Tọa độ X
     y: number; // Tọa độ Y
-    column: number
+    column: number;
+    width?: number;
+    height?: number;
+    properties?: {
+        fontSize?: number;
+        displayTime?: boolean;
+        elementId?: string;
+        fontFamily?: string;
+        strokeWidthMm?: number;
+    };
 }
 
 // Tương đương với PrinterBuilderRequest

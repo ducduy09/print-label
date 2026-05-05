@@ -102,14 +102,34 @@ const TemplateBuilder: React.FC = () => {
   const addElement = useCallback((index: number, type: TypePrint) => {
     if (!listTemp[index]) return;
 
-    // DEFAULT_ELEMENT_HEIGHTS phải là mm
-    const newElementHeight =
-      DEFAULT_ELEMENT_HEIGHTS[type.toLocaleLowerCase() as keyof typeof DEFAULT_ELEMENT_HEIGHTS] || 5;
+    const typeKey = type.toLowerCase();
+    const newElementHeight = DEFAULT_ELEMENT_HEIGHTS[typeKey] ?? 5;
+
+    let elWidth = columnWidth;
+    let elHeight = newElementHeight;
+    if (type === TypePrint.QRCODE) {
+      elWidth = Math.min(18, columnWidth);
+      elHeight = 18;
+    } else if (type === TypePrint.GEOMETRY_LINE) {
+      elWidth = Math.min(35, columnWidth);
+      elHeight = 3;
+    } else if (type === TypePrint.GEOMETRY_CIRCLE) {
+      elWidth = Math.min(16, columnWidth);
+      elHeight = 16;
+    } else if (type === TypePrint.GEOMETRY_RECTANGLE) {
+      elWidth = Math.min(28, columnWidth);
+      elHeight = 12;
+    }
 
     let maxBottomMm = 0;
     listTemp[index].elements.forEach(el => {
       maxBottomMm = Math.max(maxBottomMm, el.y + el.height);
     });
+
+    const needsFontSize =
+      type === TypePrint.TEXT ||
+      type === TypePrint.DATETIME ||
+      type === TypePrint.BARCODE;
 
     const newElement: Element = {
       id: Date.now(),
@@ -119,11 +139,12 @@ const TemplateBuilder: React.FC = () => {
       content:
         type === TypePrint.DATETIME ? new Date().toISOString().slice(0, 16)
         : type === TypePrint.BARCODE ? '9385241840319'
-        : type === TypePrint.TEXT   ? 'Sample Text'
+        : type === TypePrint.TEXT ? 'Sample Text'
+        : type === TypePrint.QRCODE ? 'https://example.com'
         : '',
-      width: columnWidth,
-      height: newElementHeight,   // mm
-      fontSize: type !== TypePrint.IMAGE ? 8 : undefined, // pt
+      width: elWidth,
+      height: elHeight,   // mm
+      fontSize: needsFontSize ? 8 : undefined, // pt
       fontWeight: 'normal',
       column: index,
       textAlign: 'left',
@@ -132,13 +153,19 @@ const TemplateBuilder: React.FC = () => {
       x: 0,                       // mm
       y: maxBottomMm > 0 ? maxBottomMm : 0.5, // mm
       displayTime: type === TypePrint.DATETIME ? true : undefined,
+      strokeWidthMm:
+        type === TypePrint.GEOMETRY_LINE ||
+        type === TypePrint.GEOMETRY_CIRCLE ||
+        type === TypePrint.GEOMETRY_RECTANGLE
+          ? 0.35
+          : undefined,
     };
 
     setListTemp(prev => prev.map((temp, i) =>
       i === index ? { ...temp, elements: [...temp.elements, newElement] } : temp
     ));
     setIsChangeData(true);
-  }, [listTemp]);
+  }, [listTemp, columnWidth]);
 
   // ── Tab switching ─────────────────────────────────────────────────────────
   const switchToListTab = useCallback(() => {
@@ -377,6 +404,7 @@ const TemplateBuilder: React.FC = () => {
               displayTime: element.displayTime,
               elementId:   element.elementId,
               fontFamily:  element.fontFamily,
+              strokeWidthMm: element.strokeWidthMm,
             },
           };
         });
@@ -557,6 +585,44 @@ const TemplateBuilder: React.FC = () => {
                 <label className="text-sm font-medium text-gray-700">Display Time</label>
                 <ToggleButton defaultValue={element.displayTime !== false}
                   onChange={(displayTime) => updateElementStyle(selectedElement.id, element.id, { displayTime })} />
+              </div>
+            </>
+          )}
+
+          {element.type === TypePrint.QRCODE && (
+            <>
+              <div className="block text-sm font-medium text-gray-700">Nội dung QR</div>
+              <textarea
+                value={(element.content as string) || ''}
+                onChange={(e) => updateElementContent(selectedElement.id, element.id, e.target.value)}
+                className="w-full px-3 py-2 border rounded-md text-sm"
+                rows={3}
+                placeholder="URL hoặc chuỗi cần mã hóa"
+              />
+            </>
+          )}
+
+          {(element.type === TypePrint.GEOMETRY_LINE ||
+            element.type === TypePrint.GEOMETRY_CIRCLE ||
+            element.type === TypePrint.GEOMETRY_RECTANGLE) && (
+            <>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Độ dày nét (mm)</label>
+                <input
+                  type="number"
+                  min={0.05}
+                  max={3}
+                  step={0.05}
+                  value={+(element.strokeWidthMm ?? 0.35).toFixed(2)}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    if (!Number.isFinite(v)) return;
+                    updateElementStyle(selectedElement.id, element.id, {
+                      strokeWidthMm: Math.max(0.05, Math.min(3, v)),
+                    });
+                  }}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </>
           )}
@@ -898,6 +964,7 @@ const TemplateBuilder: React.FC = () => {
         displayTime:  getPropertyEID(el).displayTime,
         elementId:    getPropertyEID(el).eId,
         fontFamily:   getPropertyEID(el).fontFamily,
+        strokeWidthMm: getPropertyEID(el).strokeWidthMm,
       }));
 
       const grouped: Templates[] = Object.values(

@@ -96,7 +96,8 @@ function parseSerializedElement(raw: unknown, rowIndex: number): SerializedEleme
   if (!isRecord(raw)) {
     throw new Error(`Element tại vị trí ${rowIndex} không hợp lệ`);
   }
-  const type = raw.type as string;
+  let type = String(raw.type ?? '');
+  if (type === 'geometry_box') type = TypePrint.GEOMETRY_RECTANGLE;
   if (!TYPE_PRINT_VALUES.has(type)) {
     throw new Error(`Element ${rowIndex}: type không hợp lệ`);
   }
@@ -141,6 +142,10 @@ function parseSerializedElement(raw: unknown, rowIndex: number): SerializedEleme
         : undefined,
     fontFamily:
       typeof raw.fontFamily === 'string' ? raw.fontFamily : undefined,
+    strokeWidthMm:
+      raw.strokeWidthMm != null && Number.isFinite(Number(raw.strokeWidthMm))
+        ? Number(raw.strokeWidthMm)
+        : undefined,
   };
 }
 

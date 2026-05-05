@@ -1,15 +1,19 @@
 import { TypePrint } from "@type";
 import { Element } from "../config/Type";
-import { Barcode, Calendar, ImageIcon, Type } from "lucide-react";
+import { Barcode, Calendar, Circle, ImageIcon, Minus, QrCode, RectangleHorizontal, Type } from "lucide-react";
 
-export const renderTypeItem = (id: string): Element['type'] => {
+export const renderTypeItem = (id: string | number): Element['type'] => {
     const types: Record<string, Element['type']> = {
       '1': TypePrint.TEXT,
       '2': TypePrint.BARCODE,
       '3': TypePrint.DATETIME,
       '4': TypePrint.IMAGE,
+      '5': TypePrint.QRCODE,
+      '6': TypePrint.GEOMETRY_RECTANGLE,
+      '7': TypePrint.GEOMETRY_CIRCLE,
+      '8': TypePrint.GEOMETRY_LINE,
     };
-    return types[id] || TypePrint.TEXT;
+    return types[String(id)] || TypePrint.TEXT;
 };
 
 export const ELEMENT_TYPES = [
@@ -17,14 +21,22 @@ export const ELEMENT_TYPES = [
   { id: TypePrint.BARCODE as const, name: 'Barcode', icon: Barcode },
   { id: TypePrint.DATETIME as const, name: 'Date & Time', icon: Calendar },
   { id: TypePrint.IMAGE as const, name: 'Image Upload', icon: ImageIcon },
+  { id: TypePrint.QRCODE as const, name: 'QR Code', icon: QrCode },
+  { id: TypePrint.GEOMETRY_LINE as const, name: 'Đường thẳng', icon: Minus },
+  { id: TypePrint.GEOMETRY_CIRCLE as const, name: 'Hình tròn', icon: Circle },
+  { id: TypePrint.GEOMETRY_RECTANGLE as const, name: 'Hình chữ nhật', icon: RectangleHorizontal },
 ] as const;
 
-export const DEFAULT_ELEMENT_HEIGHTS = {
+export const DEFAULT_ELEMENT_HEIGHTS: Record<string, number> = {
   text: 5,
   datetime: 5,
   barcode: 12,
   image: 12,
-} as const;
+  qrcode: 18,
+  'geometry.line': 3,
+  'geometry.circle': 16,
+  'geometry.rectangle': 12,
+};
 
 export const WIDTH_PRESETS = [25, 33, 50, 100] as const;
 export const ALIGN_OPTIONS = ['left', 'center', 'right'] as const;
@@ -35,18 +47,33 @@ export const getElementName = (type: string): string => {
       barcode: 'Barcode',
       datetime: 'Date & Time',
       image: 'Image Upload',
+      qrcode: 'QR Code',
+      geometry_line: 'Đường thẳng',
+      geometry_circle: 'Hình tròn',
+      geometry_rectangle: 'Hình chữ nhật',
     };
-    return names[type] || '';
+    return names[type.toLowerCase()] || '';
 };
 
 export const getPropertyEID = (val: any) => {
-    if (val?.properties?.elementId) { // dùng ? để tránh lỗi undefined, không bị crash app
+    const p = val?.properties;
+    const strokeRaw = p?.strokeWidthMm;
+    const strokeWidthMm =
+      typeof strokeRaw === 'number' && Number.isFinite(strokeRaw) ? strokeRaw : undefined;
+    if (p?.elementId) {
         return {
-        eId: val.properties.elementId,
-        displayTime: val.properties.displayTime,
-        fontFamily: val.properties.fontFamily,
-        fontSize: val.properties.fontSize,
+        eId: p.elementId,
+        displayTime: p.displayTime,
+        fontFamily: p.fontFamily,
+        fontSize: p.fontSize,
+        strokeWidthMm,
         };
     }
-    return { eId: '', displayTime: val?.properties?.displayTime, fontFamily: val?.properties?.fontFamily, fontSize: val?.properties?.fontSize };
+    return {
+      eId: '',
+      displayTime: p?.displayTime,
+      fontFamily: p?.fontFamily,
+      fontSize: p?.fontSize,
+      strokeWidthMm,
+    };
 };
