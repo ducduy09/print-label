@@ -1,33 +1,10 @@
 import { TypePrint } from '@type';
-import { Element, Templates } from '../config/Type';
+import { Element, TemplateDesignExportV1, TemplateDesignSerializedColumn, Templates } from '../config/Type';
+import { TEMPLATE_DESIGN_EXPORT_VERSION } from '../config/Constants';
 
-export const TEMPLATE_DESIGN_EXPORT_VERSION = 1 as const;
-
-export interface TemplateDesignExportMeta {
-  templateName: string;
-  description: string;
-  /** Giữ để tham chiếu; khi import có thể đặt rỗng để tránh ghi đè server. */
-  templateId: string;
-  paperWidth: number;
-  paperHeight: number;
-  paperCount: number;
-  columnGap: number;
-}
 
 /** Element lưu JSON: không có File trong content */
 export type SerializedElement = Omit<Element, 'content'> & { content: string };
-
-export interface TemplateDesignSerializedColumn
-  extends Omit<Templates, 'elements'> {
-  elements: SerializedElement[];
-}
-
-export interface TemplateDesignExportV1 {
-  version: typeof TEMPLATE_DESIGN_EXPORT_VERSION;
-  exportedAt: string;
-  meta: TemplateDesignExportMeta;
-  columns: TemplateDesignSerializedColumn[];
-}
 
 const TYPE_PRINT_VALUES = new Set<string>(Object.values(TypePrint));
 

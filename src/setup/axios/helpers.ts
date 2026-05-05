@@ -13,7 +13,7 @@ const TIMEOUT = 30 * 60 * 1000;
 const HEIGHTTIMEOUT = 30 * 60 * 1000;
 
 
-export const DEPLOY_URL = 'http://localhost:8080/';
+export const DEPLOY_URL = 'http://localhost:9090/';
 // export const DEPLOY_URL = 'https://server-warehouse.mkb-tech.vn/';
 // export const DEPLOY_DOWNLOAD_URL = 'http://salesappapiuat.tpb.vn/upload/';
 
@@ -187,7 +187,6 @@ class ApiClient {
     const request = () =>
       ApiClient.instance.post(url, data, {
         headers,
-        withCredentials: true,
         cancelToken: new CancelToken((cancel) => {
           this.mapRequestCancel.set(url, cancel);
         }),
@@ -276,7 +275,7 @@ class ApiClient {
     };
     try {
       const response: any = await Promise.race([
-        ApiClient.instance.post(url, data, { headers, withCredentials: true }),
+        ApiClient.instance.post(url, data, { headers}),
         new Promise((_, reject) => {
           setTimeout(() => reject(TIMEOUT_MESSAGE), TIMEOUT);
         }),

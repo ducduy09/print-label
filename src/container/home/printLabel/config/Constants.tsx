@@ -95,3 +95,5 @@ export const getPropertyEID = (val: any) => {
       strokeWidthMm,
     };
 };
+
+export const TEMPLATE_DESIGN_EXPORT_VERSION = 1 as const;

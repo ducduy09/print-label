@@ -1,34 +1,33 @@
 import Api from '@axios/helpers';
 import { PRINT, TEMPLATE_PRINT } from '@axios/urls';
+import SnackBarManager from '@component/alert/SnackBarManager';
 import SnackBarModal, { showSnackBar } from '@component/alert/SnackBarModal';
 import ToggleButton from '@component/button/ToggleButton';
 import DropdownButton from '@component/dropdown/DropdownButton';
+import DropdownList from '@component/dropdown/DropdownList';
+import LoadingManager from '@component/loading/LoadingManager';
+import LoadingModal from '@component/loading/LoadingModal';
 import ModalChoose from '@component/modal/ModalChoose';
+import NetworkErrorModal from '@component/modal/NetworkErrorModal';
+import NetworkErrorManager from '@component/network/NetworkErrorManager';
 import BackgroundTemplate from '@container/template/BackgroundTemplate';
 import { getBarcodeWidthMm, useUnsavedChanges } from '@functions';
 import { listFontPrint } from '@src/setup/DataInit';
 import { DataPrintField, KeyValue, PrinterBuilderRequest, TemplateProps, TypePrint } from '@type';
-import { Columns, Download, File, ListOrdered, Plus, Printer, Trash2 } from 'lucide-react';
+import { Columns, Download, File, ListOrdered, Printer, Trash2 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TemplateComp from './component/TemplateComp';
-import { DEFAULT_ELEMENT_HEIGHTS, ELEMENT_GROUPS, ELEMENT_TYPES, getElementName, getPropertyEID, renderTypeItem } from './config/Constants';
-import { Element, Templates, WidthValue } from './config/Type';
+import { DEFAULT_ELEMENT_HEIGHTS, ELEMENT_GROUPS, getElementName, getPropertyEID, renderTypeItem } from './config/Constants';
+import { Element, TemplateDesignExportV1, Templates, WidthValue } from './config/Type';
 import { handleDeleteTemp, handleSaveTemplate } from './hooks/AxiosTemplateData';
 import TemplateList from './TemplateList';
 import { importFilePrint } from './utils/ExcelFilePrint';
 import {
   buildTemplateDesignExport,
   downloadJsonFile,
-  importTemplateDesignFromFile,
-  TemplateDesignExportV1,
+  importTemplateDesignFromFile
 } from './utils/TemplateDesignJson';
-import LoadingModal from '@component/loading/LoadingModal';
-import NetworkErrorModal from '@component/modal/NetworkErrorModal';
-import LoadingManager from '@component/loading/LoadingManager';
-import NetworkErrorManager from '@component/network/NetworkErrorManager';
-import SnackBarManager from '@component/alert/SnackBarManager';
-import DropdownList from '@component/dropdown/DropdownList';
 
 // ─── Hằng số ────────────────────────────────────────────────────────────────
 // Gap giữa các cột — đơn vị mm, dùng trực tiếp trong CSS và tính toán drag
