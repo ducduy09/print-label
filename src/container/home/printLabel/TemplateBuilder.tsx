@@ -12,7 +12,7 @@ import { Columns, Download, File, ListOrdered, Plus, Printer, Trash2 } from 'luc
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import TemplateComp from './component/TemplateComp';
-import { DEFAULT_ELEMENT_HEIGHTS, ELEMENT_TYPES, getElementName, getPropertyEID, renderTypeItem } from './config/Constants';
+import { DEFAULT_ELEMENT_HEIGHTS, ELEMENT_GROUPS, ELEMENT_TYPES, getElementName, getPropertyEID, renderTypeItem } from './config/Constants';
 import { Element, Templates, WidthValue } from './config/Type';
 import { handleDeleteTemp, handleSaveTemplate } from './hooks/AxiosTemplateData';
 import TemplateList from './TemplateList';
@@ -28,6 +28,7 @@ import NetworkErrorModal from '@component/modal/NetworkErrorModal';
 import LoadingManager from '@component/loading/LoadingManager';
 import NetworkErrorManager from '@component/network/NetworkErrorManager';
 import SnackBarManager from '@component/alert/SnackBarManager';
+import DropdownList from '@component/dropdown/DropdownList';
 
 // ─── Hằng số ────────────────────────────────────────────────────────────────
 // Gap giữa các cột — đơn vị mm, dùng trực tiếp trong CSS và tính toán drag
@@ -719,7 +720,7 @@ const TemplateBuilder: React.FC = () => {
 
         <h3 className="font-semibold text-gray-800 mb-4">{t('addElement')}</h3>
         <div className="space-y-2">
-          {ELEMENT_TYPES.map((type) => (
+          {/* {ELEMENT_TYPES.map((type) => (
             <button key={type.id}
               onClick={() => addElement(selectedElement.id >= 0 ? selectedElement.id : 0, type.id)}
               className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition group">
@@ -729,7 +730,22 @@ const TemplateBuilder: React.FC = () => {
               </div>
               <Plus size={18} className="text-gray-400 group-hover:text-teal-500" />
             </button>
-          ))}
+          ))} */}
+          {ELEMENT_GROUPS.map((type) => {
+            const groupLabels: Record<string, string> = {
+              "1": "Văn bản & Hình ảnh",
+              "2": "Mã vạch",
+              "3": "Hình học",
+            };
+            return (
+              <DropdownList 
+                key={type.id}
+                label={groupLabels[type.id] || "Thêm phần tử"}
+                list={type.value} 
+                onSelect={(item) => addElement(selectedElement.id >= 0 ? selectedElement.id : 0, item.id as unknown as TypePrint)}
+              />
+            );
+          })}
         </div>
 
         <h3 className="font-semibold text-gray-800 mt-8 mb-4">{t('uploadDataExcel')}</h3>

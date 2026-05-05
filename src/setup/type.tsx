@@ -7,6 +7,15 @@ export interface KeyNameProps {
   id: string;
   name: string;
 }
+export interface KeyNameIconProps {
+  id: string;
+  name: string;
+  icon: any;
+}
+export interface KeyValueProps {
+  id: string;
+  value: any[]
+}
 export interface KeyValue {
   id: number;
   value: any;

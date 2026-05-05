@@ -1,4 +1,4 @@
-import { TypePrint } from "@type";
+import { KeyNameIconProps, KeyValueProps, TypePrint } from "@type";
 import { Element } from "../config/Type";
 import { Barcode, Calendar, Circle, ImageIcon, Minus, QrCode, RectangleHorizontal, Type } from "lucide-react";
 
@@ -16,7 +16,7 @@ export const renderTypeItem = (id: string | number): Element['type'] => {
     return types[String(id)] || TypePrint.TEXT;
 };
 
-export const ELEMENT_TYPES = [
+export const ELEMENT_TYPES: KeyNameIconProps[] = [
   { id: TypePrint.TEXT as const, name: 'Text Input', icon: Type },
   { id: TypePrint.BARCODE as const, name: 'Barcode', icon: Barcode },
   { id: TypePrint.DATETIME as const, name: 'Date & Time', icon: Calendar },
@@ -25,7 +25,25 @@ export const ELEMENT_TYPES = [
   { id: TypePrint.GEOMETRY_LINE as const, name: 'Đường thẳng', icon: Minus },
   { id: TypePrint.GEOMETRY_CIRCLE as const, name: 'Hình tròn', icon: Circle },
   { id: TypePrint.GEOMETRY_RECTANGLE as const, name: 'Hình chữ nhật', icon: RectangleHorizontal },
-] as const;
+];
+
+export const ELEMENT_GROUPS: KeyValueProps[] = [
+  { id: "1", value: [
+      { id: TypePrint.TEXT as const, name: 'Text Input', icon: Type },
+      { id: TypePrint.DATETIME as const, name: 'Date & Time', icon: Calendar },
+      { id: TypePrint.IMAGE as const, name: 'Image Upload', icon: ImageIcon },
+    ]
+  },
+  { id: "2", value: [
+      { id: TypePrint.BARCODE as const, name: 'Barcode', icon: Barcode },
+      { id: TypePrint.QRCODE as const, name: 'QR Code', icon: QrCode },
+    ] },
+  { id: "3", value: [
+      { id: TypePrint.GEOMETRY_LINE as const, name: 'Đường thẳng', icon: Minus },
+      { id: TypePrint.GEOMETRY_CIRCLE as const, name: 'Hình tròn', icon: Circle },
+      { id: TypePrint.GEOMETRY_RECTANGLE as const, name: 'Hình chữ nhật', icon: RectangleHorizontal },
+    ] },
+];
 
 export const DEFAULT_ELEMENT_HEIGHTS: Record<string, number> = {
   text: 5,
@@ -33,9 +51,9 @@ export const DEFAULT_ELEMENT_HEIGHTS: Record<string, number> = {
   barcode: 12,
   image: 12,
   qrcode: 18,
-  'geometry.line': 3,
-  'geometry.circle': 16,
-  'geometry.rectangle': 12,
+  geometry_line: 3,
+  geometry_circle: 16,
+  geometry_rectangle: 12,
 };
 
 export const WIDTH_PRESETS = [25, 33, 50, 100] as const;
