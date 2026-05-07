@@ -33,6 +33,9 @@ import {
 // Gap giữa các cột — đơn vị mm, dùng trực tiếp trong CSS và tính toán drag
 const COLUMN_GAP_MM = 3;
 
+// Khoảng GAP cảm biến giữa các tem (trục Y) — thuộc tính giấy, không phải column gap thiết kế
+const SENSOR_GAP_MM = 2;
+
 const getColumnWidth = (paperWidth: number, paperCount: number, gap: number) => {
   if (paperCount <= 1) return paperWidth;
   const totalGap = gap * (paperCount - 1);
@@ -108,8 +111,10 @@ const TemplateBuilder: React.FC = () => {
     let elWidth = columnWidth;
     let elHeight = newElementHeight;
     if (type === TypePrint.QRCODE) {
-      elWidth = Math.min(18, columnWidth);
-      elHeight = 18;
+      // QR code là hình vuông
+      const qrSize = Math.min(18, columnWidth);
+      elWidth = qrSize;
+      elHeight = qrSize;
     } else if (type === TypePrint.GEOMETRY_LINE) {
       elWidth = Math.min(35, columnWidth);
       elHeight = 3;
@@ -269,7 +274,16 @@ const TemplateBuilder: React.FC = () => {
       if (listTemp.find(temp => temp.elements.find(el => !el.elementId?.trim()))) return;
 
       const result = await importFilePrint(file, listTemp, paperCount);
-      const request = { templates: result, size: { width: paperWidth, height: paperHeight, gap: columnGap, columns: paperCount} };
+      const request = {
+        templates: result,
+        size: {
+          width: paperWidth,
+          height: paperHeight,
+          gap: SENSOR_GAP_MM,
+          columnGap,
+          columns: paperCount,
+        },
+      };
 
       if (result?.length > 0) {
         const response = await Api.postWithJson(PRINT.customizeBuilder, request, true);
@@ -308,13 +322,27 @@ const TemplateBuilder: React.FC = () => {
         width: cw,
         height: meta.paperHeight,
         createdAt: src.createdAt || new Date().toISOString(),
-        elements: src.elements.map((el, j) => ({
-          ...el,
-          id: importBatchBase + i * 100000 + j,
-          column: i,
-          width: Math.max(1, Math.min(cw, el.width)),
-          content: el.content,
-        })),
+        elements: src.elements.map((el, j) => {
+          // Đảm bảo strokeWidthMm có giá trị default cho geometry types
+          const isGeometry = 
+            el.type === TypePrint.GEOMETRY_LINE ||
+            el.type === TypePrint.GEOMETRY_CIRCLE ||
+            el.type === TypePrint.GEOMETRY_RECTANGLE;
+          // QR code là hình vuông
+          const isQrCode = el.type === TypePrint.QRCODE;
+          const finalWidth = isQrCode ? Math.min(el.width, el.height) : el.width;
+          const finalHeight = isQrCode ? finalWidth : el.height;
+          
+          return {
+            ...el,
+            id: importBatchBase + i * 100000 + j,
+            column: i,
+            width: Math.max(1, Math.min(cw, finalWidth)),
+            height: finalHeight,
+            content: el.content,
+            strokeWidthMm: isGeometry && (el.strokeWidthMm === undefined || el.strokeWidthMm === 0) ? 0.35 : el.strokeWidthMm,
+          };
+        }),
       });
     }
 
@@ -416,7 +444,13 @@ const TemplateBuilder: React.FC = () => {
       };
       const request = {
         templates: [dto],
-        size: { width: paperWidth, height: paperHeight, gap: columnGap, columns: paperCount },
+        size: {
+          width: paperWidth,
+          height: paperHeight,
+          gap: SENSOR_GAP_MM,
+          columnGap,
+          columns: paperCount,
+        },
       };
 
       const response = await Api.postWithJson(PRINT.customizeBuilder, request, true);
@@ -497,28 +531,38 @@ const TemplateBuilder: React.FC = () => {
           {element.type === TypePrint.BARCODE && (
             <>
               <input value={element.content as string} placeholder={t('barcodeData')}
-                onChange={(e) => {
-                  const nextValue = e.target.value;
-                  if (nextValue.trim() === '') {
-                    updateElementContent(selectedElement.id, element.id, nextValue);
-                    return;
-                  }
-
-                  const requiredWidth = getBarcodeWidthMm(nextValue);
-                  if (requiredWidth > element.width) {
-                    showSnackBar(
-                      'WARNING',
-                      `Barcode needs at least ${requiredWidth.toFixed(1)}mm, current width is ${element.width.toFixed(1)}mm.`
-                    );
-                    return;
-                  }
-
-                  updateElementContent(selectedElement.id, element.id, nextValue);
-                }}
-                className="w-full px-3 py-2 border rounded-md text-sm" />
+                onChange={(e) => updateElementContent(selectedElement.id, element.id, e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md text-sm ${isBarcodeTooNarrow ? 'border-red-500' : 'border-gray-300'}`} />
               {barcodeRequiredWidthMm > 0 && (
-                <div className={`mt-2 text-xs ${isBarcodeTooNarrow ? 'text-red-600' : 'text-gray-500'}`}>
-                  Required min width: {barcodeRequiredWidthMm.toFixed(1)}mm
+                <div className={`mt-2 text-xs rounded-md px-2 py-1.5 ${isBarcodeTooNarrow ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      In: <b>{barcodeRequiredWidthMm.toFixed(1)}mm</b> · Hiện tại: <b>{element.width.toFixed(1)}mm</b>
+                    </span>
+                    {isBarcodeTooNarrow && (
+                      <button
+                        type="button"
+                        onClick={() => updateElementSize(
+                          selectedElement.id, element.id, element.elementId,
+                          Math.min(columnWidth, barcodeRequiredWidthMm),
+                          element.height,
+                        )}
+                        className="px-2 py-0.5 text-[11px] bg-red-600 text-white rounded hover:bg-red-500 whitespace-nowrap"
+                      >
+                        Khớp chiều rộng
+                      </button>
+                    )}
+                  </div>
+                  {isBarcodeTooNarrow && (
+                    <div className="mt-1 text-[11px] opacity-90">
+                      Khi in, mã sẽ bị cắt vì kích thước render ({element.width.toFixed(1)}mm) nhỏ hơn kích thước in ({barcodeRequiredWidthMm.toFixed(1)}mm).
+                    </div>
+                  )}
+                  {!isBarcodeTooNarrow && barcodeRequiredWidthMm < element.width - 0.5 && (
+                    <div className="mt-1 text-[11px] opacity-90">
+                      Render đang lớn hơn kích thước in — bản in sẽ ngắn hơn preview.
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex items-center justify-between mt-2">
@@ -653,42 +697,82 @@ const TemplateBuilder: React.FC = () => {
           {/* Dimensions — width/height mm */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Dimensions</label>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Width (mm)</label>
-                <input type="number" value={+element.width.toFixed(1)} step={1}
+            
+            {/* QR Code: vuông nên chỉ chỉnh 1 cạnh */}
+            {element.type === TypePrint.QRCODE ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Kích thước (mm)</label>
+                  <input type="number" value={+element.width.toFixed(1)} step={1}
+                    onChange={(e) => {
+                      const mm = parseFloat(e.target.value) || 0;
+                      // QR code là vuông, nên width = height
+                      updateElementSize(selectedElement.id, element.id, element.elementId, mm, mm);
+                    }}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <input type="range" min="1" max={columnWidth} value={element.width}
                   onChange={(e) => {
-                    const mm = parseFloat(e.target.value) || 0;
-                    updateElementSize(selectedElement.id, element.id, element.elementId, mm, element.height);
+                    const mm = parseFloat(e.target.value);
+                    updateElementSize(selectedElement.id, element.id, element.elementId, mm, mm);
                   }}
-                  className={`w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${isBarcodeTooNarrow ? 'border-red-500' : 'border-gray-300'}`} />
+                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                <div className="flex gap-1">
+                  {[10, 15, 20, 25].map(w => (
+                    <button key={w}
+                      onClick={() => updateElementSize(selectedElement.id, element.id, element.elementId, w, w)}
+                      className={`flex-1 text-xs py-1 border rounded hover:bg-gray-50 ${Math.round(element.width) === w ? 'bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-600'}`}>
+                      {`${w}mm`}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div />
-            </div>
-            <input type="range" min="1" max={columnWidth} value={element.width}
-              onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, parseFloat(e.target.value), element.height)}
-              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-4" />
-            {isElementTooWide && (
-              <div className="text-xs text-red-600 mb-2">
-                Element width exceeds current column width of {columnWidth.toFixed(1)}mm.
-              </div>
+            ) : (
+              <>
+                {/* Các element khác: riêng width và height */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Width (mm)</label>
+                    <input type="number" value={+element.width.toFixed(1)} step={1}
+                      onChange={(e) => {
+                        const mm = parseFloat(e.target.value) || 0;
+                        updateElementSize(selectedElement.id, element.id, element.elementId, mm, element.height);
+                      }}
+                      className={`w-full px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-blue-500 ${isBarcodeTooNarrow ? 'border-red-500' : 'border-gray-300'}`} />
+                  </div>
+                  <div />
+                </div>
+                <input type="range" min="1" max={columnWidth} value={element.width}
+                  onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, parseFloat(e.target.value), element.height)}
+                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer mb-4" />
+                {isElementTooWide && (
+                  <div className="text-xs text-red-600 mb-2">
+                    Element width exceeds current column width of {columnWidth.toFixed(1)}mm.
+                  </div>
+                )}
+                {element.type === TypePrint.BARCODE && isBarcodeTooNarrow && (
+                  <div className="text-xs text-red-600 mb-2">
+                    Width hiện tại nhỏ hơn kích thước in ({barcodeRequiredWidthMm.toFixed(1)}mm) — barcode sẽ bị méo/cắt khi in.
+                  </div>
+                )}
+                <div className="flex gap-1 mb-4">
+                  {[20, 30, 40, 50].map(w => (
+                    <button key={w}
+                      onClick={() => updateElementSize(selectedElement.id, element.id, element.elementId, w, element.height)}
+                      className={`flex-1 text-xs py-1 border rounded hover:bg-gray-50 ${Math.round(element.width) === w ? 'bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-600'}`}>
+                      {`${w}mm`}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Height (mm)</label>
+                  <input type="range" value={element.height} min="2" max="55" step={1}
+                    onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, element.width, parseFloat(e.target.value))}
+                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+                  <div className="text-right text-xs text-gray-400 mt-1">{element.height.toFixed(1)} mm</div>
+                </div>
+              </>
             )}
-            <div className="flex gap-1 mb-4">
-              {[20, 30, 40, 50].map(w => (
-                <button key={w}
-                  onClick={() => updateElementSize(selectedElement.id, element.id, element.elementId, w, element.height)}
-                  className={`flex-1 text-xs py-1 border rounded hover:bg-gray-50 ${Math.round(element.width) === w ? 'bg-blue-50 border-blue-500 text-blue-600' : 'text-gray-600'}`}>
-                  {`${w}mm`}
-                </button>
-              ))}
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Height (mm)</label>
-              <input type="range" value={element.height} min="2" max="55" step={1}
-                onChange={(e) => updateElementSize(selectedElement.id, element.id, element.elementId, element.width, parseFloat(e.target.value))}
-                className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-              <div className="text-right text-xs text-gray-400 mt-1">{element.height.toFixed(1)} mm</div>
-            </div>
           </div>
         </div>
       </div>
@@ -970,12 +1054,14 @@ const TemplateBuilder: React.FC = () => {
         content:      el.content,
         x:            Number(el.x),           // mm
         y:            Number(el.y),           // mm
-        padding:      0,
-        margin:       0,
+        padding:      el.properties?.padding ?? 0,
+        margin:       el.properties?.margin ?? 0,
         column:       Number(el.column),
         width: Number(el.width),
         height:       Number(el.height),      // mm
         fontSize:     getPropertyEID(el).fontSize,   // pt
+        fontWeight:   el.properties?.fontWeight ?? 'normal',
+        textAlign:    el.properties?.textAlign ?? 'left',
         displayTime:  getPropertyEID(el).displayTime,
         elementId:    getPropertyEID(el).eId,
         fontFamily:   getPropertyEID(el).fontFamily,

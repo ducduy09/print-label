@@ -74,6 +74,10 @@ export function importFilePrint(file: File, listTemp: Templates[], ppCount: numb
                     displayTime: element.displayTime,
                     elementId: element.elementId,
                     fontFamily: element.fontFamily,
+                    fontWeight: element.fontWeight,
+                    textAlign: element.textAlign,
+                    padding: element.padding,
+                    margin: element.margin,
                     strokeWidthMm: element.strokeWidthMm,
                   }
                 };

@@ -76,8 +76,11 @@ export const getElementName = (type: string): string => {
 export const getPropertyEID = (val: any) => {
     const p = val?.properties;
     const strokeRaw = p?.strokeWidthMm;
+    // Nếu strokeRaw là 0 (server trả về 0), vẫn chấp nhận; nếu undefined/null thì mặc định 0.35
     const strokeWidthMm =
-      typeof strokeRaw === 'number' && Number.isFinite(strokeRaw) ? strokeRaw : undefined;
+      typeof strokeRaw === 'number' && Number.isFinite(strokeRaw) && strokeRaw > 0
+        ? strokeRaw
+        : 0.35; // Default fallback khi server không trả về hoặc trả về invalid
     if (p?.elementId) {
         return {
         eId: p.elementId,

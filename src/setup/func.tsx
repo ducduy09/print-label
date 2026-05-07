@@ -549,6 +549,13 @@ export const generateBarcode = (
   }
 };
 
+// Bề rộng 1 module CODE128 khi in (mm). 0.25mm = 10mil, chuẩn công nghiệp,
+// tương đương `width: 2` ở máy in nhãn 203 DPI. Đổi giá trị này nếu máy in
+// dùng DPI khác (300 DPI → 0.169mm với width=2).
+const BARCODE_PRINT_MODULE_WIDTH_MM = 0.25;
+// Số px/module mà generateBarcode/getBarcodeWidth đang dùng khi gọi JsBarcode.
+const BARCODE_RENDER_MODULE_PX = 2;
+
 export const getBarcodeWidth = (text: string): number => {
   if (!text) return 0;
 
@@ -557,7 +564,7 @@ export const getBarcodeWidth = (text: string): number => {
   try {
     JsBarcode(canvas, text, {
       format: "CODE128",
-      width: 2,
+      width: BARCODE_RENDER_MODULE_PX,
       height: 50,
       displayValue: false,
       margin: 0,
@@ -572,12 +579,21 @@ export const getBarcodeWidth = (text: string): number => {
   }
 };
 
-export const getBarcodeWidthMm = (text: string, dpi: number = 96): number => {
+/** Trả về số module của barcode (đã bao gồm start/checksum/stop). */
+export const getBarcodeModuleCount = (text: string): number => {
   const widthPx = getBarcodeWidth(text);
-  if (widthPx <= 0 || dpi <= 0) return 0;
+  if (widthPx <= 0) return 0;
+  return Math.round(widthPx / BARCODE_RENDER_MODULE_PX);
+};
 
-  // 1 inch = 25.4 mm
-  return (widthPx / dpi) * 25.4;
+/**
+ * Bề rộng barcode khi IN ra (mm), dựa trên số module thực và bề rộng module
+ * vật lý của máy in — không phụ thuộc DPI màn hình.
+ */
+export const getBarcodeWidthMm = (text: string): number => {
+  const modules = getBarcodeModuleCount(text);
+  if (modules <= 0) return 0;
+  return modules * BARCODE_PRINT_MODULE_WIDTH_MM;
 };
 
 export const renderImageByDataByte = (data: string) => {

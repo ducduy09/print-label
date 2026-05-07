@@ -73,7 +73,7 @@ export const handleSaveTemplate = async (elements: Templates[], data: any ) => {
                   padding: el.padding,
                   margin: el.margin,
                   displayTime: el.displayTime ? true : false,
-                  strokeWidthMm: el.strokeWidthMm,
+                  strokeWidthMm: el.strokeWidthMm ?? undefined,  // Gửi undefined nếu không có để server biết không set
               } 
             }
           })

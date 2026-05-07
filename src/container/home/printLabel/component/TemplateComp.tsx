@@ -3,7 +3,7 @@ import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRe
 import { Element, Templates } from '../config/Type';
 import { KeyValue, TypePrint } from '@type';
 import { ImageIcon } from 'lucide-react';
-import { generateBarcode } from '@functions';
+import { generateBarcode, getBarcodeWidthMm } from '@functions';
 import QRCode from 'qrcode';
 
 const DEFAULT_GEOMETRY_STROKE_MM = 0.35;
@@ -93,19 +93,33 @@ const ElementRenderer: React.FC<ElementRendererProps> = React.memo(({ element, o
         </div>
       );
 
-    case TypePrint.BARCODE:
+    case TypePrint.BARCODE: {
+      const text = (element.content as string) || '';
+      const printWidthMm = text.trim() ? getBarcodeWidthMm(text) : 0;
+      const renderWidthMm = printWidthMm > 0
+        ? Math.min(printWidthMm, element.width)
+        : element.width;
+      const isClipped = printWidthMm > element.width + 0.05;
       return (
         <div style={{ margin: `${element.margin || 0}mm`, height: '100%' }}
-          className="flex flex-col items-center justify-center w-full overflow-hidden">
-          {element.content ? (
-            <img src={generateBarcode(element.content as string, element.displayTime)}
-              alt="Barcode" style={{ height: '95%', width: '100%' }}
+          className="flex flex-col items-center justify-start w-full overflow-hidden">
+          {text ? (
+            <img src={generateBarcode(text, element.displayTime)}
+              alt="Barcode"
+              style={{
+                height: '95%',
+                width: `${renderWidthMm}mm`,
+                maxWidth: '100%',
+                objectFit: 'fill',
+                outline: isClipped ? '1px dashed #dc2626' : 'none',
+              }}
               draggable="false" onDragStart={e => e.preventDefault()} />
           ) : (
             <div className="text-gray-400 text-sm">No barcode data</div>
           )}
         </div>
       );
+    }
 
     case TypePrint.DATETIME: {
       const dateContent = element.content ? new Date(element.content as string) : null;
